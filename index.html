@@ -16,7 +16,7 @@
 
     <section class="status-panel" aria-label="게임 상태">
       <div class="status-card">
-        <span>남은 시간</span>
+        <span id="timeLabel">남은 시간</span>
         <strong id="timeText">03:00</strong>
       </div>
       <div class="status-card hp-card">
@@ -62,10 +62,15 @@
         <h2>PAUSE</h2>
         <p>잠깐 쉬는 중입니다. 계속하려면 버튼 또는 P키를 눌러주세요.</p>
         <button id="resumeButton" type="button">계속 출근하기</button>
+        <button id="quitButton" class="quit-button hidden" type="button">그만하고 기록 저장</button>
       </div>
       <div class="center-message" id="centerMessage">
         <h2>햄찌 출근 준비 완료!</h2>
         <p>스페이스 / 클릭 / 모바일 터치로 점프하세요. 공중에서 한 번 더 누르면 더블점프가 됩니다.</p>
+        <div class="mode-select" aria-label="게임 모드 선택">
+          <button class="mode-option selected" id="normalModeButton" type="button" data-mode="normal">기본모드<br><span>3분 출근 성공</span></button>
+          <button class="mode-option" id="endlessModeButton" type="button" data-mode="endless">무한모드<br><span>HP 0까지 버티기</span></button>
+        </div>
         <label class="nickname-field" for="nicknameInput">닉네임</label>
         <input id="nicknameInput" class="nickname-input" type="text" maxlength="10" placeholder="예: 햄찌" />
         <button id="startButton" type="button">출근 시작</button>
@@ -74,7 +79,7 @@
 
     <section class="guide-panel">
       <div><strong>핵심 메커닉</strong><p>점프 타이밍으로 장애물 피하기</p></div>
-      <div><strong>승패 조건</strong><p>3분 동안 HP가 0이 되지 않게 생존</p></div>
+      <div><strong>승패 조건</strong><p>기본 3분 생존 / 무한 HP 소진까지 버티기</p></div>
       <div><strong>조작 방식</strong><p>스페이스 / 클릭 / 터치 · 더블점프</p></div>
     </section>
 
