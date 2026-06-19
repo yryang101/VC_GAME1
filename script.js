@@ -13,6 +13,7 @@ const stageInfo = [
   { stage: 1, name: '1단계 · 집 앞 골목', damage: 3, speed: 3.7, spawn: 1850, fatigueInterval: 10, theme: 'home' },
   { stage: 2, name: '2단계 · 버스 정류장', damage: 5, speed: 4.6, spawn: 1600, fatigueInterval: 8, theme: 'bus' },
   { stage: 3, name: '3단계 · 햄찌컴퍼니 앞', damage: 10, speed: 5.4, spawn: 1380, fatigueInterval: 5, theme: 'office' },
+  { stage: 4, name: '4단계 · 야근 러시', damage: 12, speed: 6.2, spawn: 1150, fatigueInterval: 4, theme: 'rush' },
 ];
 
 const objectTypes = [
@@ -28,6 +29,7 @@ const state = {
   running: false,
   paused: false,
   gameOver: false,
+  arriving: false,
   mode: 'normal',
   endlessLevel: 0,
   hp: MAX_HP,
@@ -68,27 +70,29 @@ const nicknameInput = document.getElementById('nicknameInput');
 const pauseButton = document.getElementById('pauseButton');
 const pauseMessage = document.getElementById('pauseMessage');
 const resumeButton = document.getElementById('resumeButton');
+const pauseHomeButton = document.getElementById('pauseHomeButton');
 const quitButton = document.getElementById('quitButton');
 const resultPanel = document.getElementById('resultPanel');
 const endingTitle = document.getElementById('endingTitle');
 const endingText = document.getElementById('endingText');
 const restartButton = document.getElementById('restartButton');
+const homeButton = document.getElementById('homeButton');
 const logList = document.getElementById('logList');
 const recordList = document.getElementById('recordList');
 const stage = document.getElementById('stage');
 
 function getStageConfig() {
-  const base = stageInfo[state.stage - 1];
-  if (state.mode !== 'endless' || state.stage < 3) return base;
+  const base = stageInfo[state.stage - 1] || stageInfo[stageInfo.length - 1];
+  if (state.mode !== 'endless' || state.stage < 4) return base;
 
   const level = state.endlessLevel;
   return {
     ...base,
-    name: level > 0 ? `무한 ${3 + level}단계 · 야근 출근길` : base.name,
-    damage: Math.min(16, base.damage + Math.floor(level / 2)),
-    speed: Math.min(7.4, base.speed + level * 0.28),
-    spawn: Math.max(900, base.spawn - level * 80),
-    fatigueInterval: Math.max(4, base.fatigueInterval - Math.floor(level / 2)),
+    name: level > 0 ? `무한 ${4 + level}단계 · 야근 출근길` : base.name,
+    damage: Math.min(20, base.damage + Math.floor(level / 2)),
+    speed: Math.min(8.2, base.speed + level * 0.28),
+    spawn: Math.max(820, base.spawn - level * 75),
+    fatigueInterval: Math.max(3, base.fatigueInterval - Math.floor(level / 2)),
   };
 }
 
@@ -136,8 +140,8 @@ function updateHUD() {
   timeText.textContent = formatTime(state.elapsed);
   hpText.textContent = `${Math.max(0, Math.round(state.hp))} / 100`;
   hpFill.style.width = `${Math.max(0, Math.min(100, state.hp))}%`;
-  stageText.textContent = state.mode === 'endless' && state.stage === 3
-    ? `무한 ${3 + state.endlessLevel}단계`
+  stageText.textContent = state.mode === 'endless' && state.stage >= 4
+    ? `무한 ${4 + state.endlessLevel}단계`
     : `${state.stage}단계`;
   stageBanner.textContent = cfg.name;
   const progress = state.mode === 'endless'
@@ -158,6 +162,7 @@ function resetGame() {
   state.running = false;
   state.paused = false;
   state.gameOver = false;
+  state.arriving = false;
   state.hp = MAX_HP;
   state.elapsed = 0;
   state.endlessLevel = 0;
@@ -176,8 +181,10 @@ function resetGame() {
   state.coffeeCount = 0;
   state.hitCount = 0;
   state.lastTime = 0;
+  hamsterWrap.style.transition = '';
+  hamsterWrap.style.left = '';
   hamsterWrap.style.transform = 'translateY(0px)';
-  hamsterWrap.classList.remove('hit', 'jumping');
+  hamsterWrap.classList.remove('hit', 'jumping', 'arriving');
   resultPanel.classList.add('hidden');
   centerMessage.classList.remove('hidden');
   centerMessage.querySelector('h2').textContent = '햄찌 출근 준비 완료!';
@@ -188,6 +195,7 @@ function resetGame() {
   startButton.disabled = false;
   if (pauseButton) pauseButton.classList.add('hidden');
   if (pauseMessage) pauseMessage.classList.add('hidden');
+  if (pauseHomeButton) pauseHomeButton.classList.add('hidden');
   if (quitButton) quitButton.classList.add('hidden');
   if (nicknameInput) nicknameInput.disabled = false;
   logList.innerHTML = '<li>햄찌가 휴대폰과 사원증을 챙겼습니다.</li>';
@@ -375,9 +383,11 @@ function applyFatigue(dt) {
 }
 
 function updateStage() {
-  const nextStage = state.elapsed < 60 ? 1 : state.elapsed < 120 ? 2 : 3;
-  const nextEndlessLevel = state.mode === 'endless'
-    ? Math.max(0, Math.floor(Math.max(0, state.elapsed - GAME_TIME) / 45))
+  const nextStage = state.mode === 'endless'
+    ? (state.elapsed < 30 ? 1 : state.elapsed < 60 ? 2 : state.elapsed < 120 ? 3 : 4)
+    : (state.elapsed < 60 ? 1 : state.elapsed < 120 ? 2 : 3);
+  const nextEndlessLevel = state.mode === 'endless' && nextStage >= 4
+    ? Math.max(0, Math.floor(Math.max(0, state.elapsed - 120) / 45))
     : 0;
   const stageChanged = nextStage !== state.stage;
   const endlessLevelChanged = nextEndlessLevel !== state.endlessLevel;
@@ -390,8 +400,12 @@ function updateStage() {
   state.nextSpawnDelay = getRandomSpawnDelay(getStageConfig());
   const cfg = getStageConfig();
 
-  if (state.mode === 'endless' && endlessLevelChanged && state.endlessLevel > 0) {
-    addLog(`무한 ${3 + state.endlessLevel}단계! 출근길이 더 빨라졌습니다.`);
+  if (state.mode === 'endless' && state.stage >= 4) {
+    if (stageChanged) {
+      addLog('4단계 진입! 야근 러시가 시작되어 장애물과 피로가 더 강해집니다.');
+    } else if (endlessLevelChanged && state.endlessLevel > 0) {
+      addLog(`무한 ${4 + state.endlessLevel}단계! 출근길이 더 빨라졌습니다.`);
+    }
     return;
   }
 
@@ -573,20 +587,64 @@ function loop(timestamp) {
   updateHUD();
 
   if (state.mode === 'normal' && state.elapsed >= GAME_TIME) {
-    endGame(true, 'complete');
+    startArrivalSequence();
     return;
   }
 
   requestAnimationFrame(loop);
 }
 
+function startArrivalSequence() {
+  if (state.arriving || state.gameOver) return;
+  state.arriving = true;
+  state.running = false;
+  state.paused = false;
+  state.objects.forEach((object) => object.el.remove());
+  state.objects = [];
+  state.y = GROUND_Y;
+  state.velocityY = 0;
+  state.jumpCount = 0;
+  updateHUD();
+  if (pauseButton) pauseButton.classList.add('hidden');
+  if (pauseMessage) pauseMessage.classList.add('hidden');
+  if (pauseHomeButton) pauseHomeButton.classList.add('hidden');
+  hamsterWrap.classList.remove('hit', 'jumping');
+  hamsterWrap.classList.add('arriving');
+  hamsterWrap.style.transition = 'left 1.85s ease-in, transform .2s ease';
+  hamsterWrap.style.transform = 'translateY(0px)';
+  hamsterWrap.style.left = `${Math.max(120, stage.clientWidth - 170)}px`;
+  addLog('출근 성공 직전! 햄찌가 햄찌컴퍼니 문 앞까지 달려갑니다.');
+  setTimeout(() => {
+    hamsterWrap.classList.remove('arriving');
+    endGame(true, 'arrival');
+  }, 1950);
+}
+
+function goHome() {
+  resetGame();
+}
+
+function pauseGoHome() {
+  if (!state.running || state.gameOver) return;
+  const confirmed = window.confirm('처음으로 돌아가시겠어요? 현재 진행 중인 기록은 저장되지 않습니다.');
+  if (!confirmed) return;
+  state.running = false;
+  state.paused = false;
+  state.gameOver = false;
+  state.arriving = false;
+  resetGame();
+  addLog('메인 화면으로 돌아왔습니다. 새 출근을 준비하세요.');
+}
+
 function endGame(success, reason = 'hp0') {
   if (state.gameOver) return;
   state.gameOver = true;
   state.running = false;
+  state.arriving = false;
   if (nicknameInput) nicknameInput.disabled = false;
   if (pauseButton) pauseButton.classList.add('hidden');
   if (pauseMessage) pauseMessage.classList.add('hidden');
+  if (pauseHomeButton) pauseHomeButton.classList.add('hidden');
   if (quitButton) quitButton.classList.add('hidden');
   updateHUD();
   resultPanel.classList.remove('hidden');
@@ -618,7 +676,7 @@ function endGame(success, reason = 'hp0') {
     endingText.innerHTML = `${state.playerName}님의 햄찌가 ${formatClock(finalRecord.time)} 동안 버텼습니다.<br>남은 HP: ${finalRecord.hp} / 회피 장애물: ${state.passed}개<br>커피 획득: ${state.coffeeCount}잔 / 피격 횟수: ${state.hitCount}회<br>${bestText}${newRecordText}`;
   } else if (success) {
     endingTitle.textContent = `출근 성공! ${rank}등급`;
-    endingText.innerHTML = `${state.playerName}님의 햄찌가 3분 출근길을 버텼습니다.<br>남은 HP: ${finalRecord.hp} / 회피 장애물: ${state.passed}개<br>커피 획득: ${state.coffeeCount}잔 / 피격 횟수: ${state.hitCount}회<br>${bestText}${newRecordText}`;
+    endingText.innerHTML = `${state.playerName}님의 햄찌가 햄찌컴퍼니에 무사히 도착했습니다.<br>남은 HP: ${finalRecord.hp} / 회피 장애물: ${state.passed}개<br>커피 획득: ${state.coffeeCount}잔 / 피격 횟수: ${state.hitCount}회<br>${bestText}${newRecordText}`;
   } else {
     endingTitle.textContent = `출근 실패! ${rank}등급`;
     endingText.innerHTML = `${state.playerName}님의 햄찌가 출근길에서 녹초가 됐습니다.<br>버틴 시간: ${formatClock(state.elapsed)} / 회피 장애물: ${state.passed}개<br>커피 획득: ${state.coffeeCount}잔 / 피격 횟수: ${state.hitCount}회<br>${bestText}${newRecordText}`;
@@ -637,12 +695,14 @@ function togglePause() {
   if (state.paused) {
     state.lastTime = 0;
     if (pauseMessage) pauseMessage.classList.remove('hidden');
+    if (pauseHomeButton) pauseHomeButton.classList.remove('hidden');
     if (quitButton) quitButton.classList.toggle('hidden', state.mode !== 'endless');
     if (pauseButton) pauseButton.textContent = '계속하기';
     addLog('일시정지! 햄찌가 잠깐 숨을 고릅니다.');
   } else {
     if (pauseMessage) pauseMessage.classList.add('hidden');
-  if (quitButton) quitButton.classList.add('hidden');
+    if (pauseHomeButton) pauseHomeButton.classList.add('hidden');
+    if (quitButton) quitButton.classList.add('hidden');
     if (pauseButton) pauseButton.textContent = '일시정지';
     addLog('다시 출근 시작!');
     requestAnimationFrame(loop);
@@ -665,8 +725,10 @@ function handleInput(event) {
 
 startButton.addEventListener('click', startGame);
 restartButton.addEventListener('click', startGame);
+if (homeButton) homeButton.addEventListener('click', goHome);
 if (pauseButton) pauseButton.addEventListener('click', togglePause);
 if (resumeButton) resumeButton.addEventListener('click', togglePause);
+if (pauseHomeButton) pauseHomeButton.addEventListener('click', pauseGoHome);
 if (quitButton) quitButton.addEventListener('click', quitEndlessRun);
 if (normalModeButton) normalModeButton.addEventListener('click', () => setMode('normal'));
 if (endlessModeButton) endlessModeButton.addEventListener('click', () => setMode('endless'));

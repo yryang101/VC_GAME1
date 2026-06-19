@@ -250,3 +250,25 @@ button:hover { transform: translate(2px, 2px); box-shadow: 2px 2px 0 var(--shado
 @media (max-width: 520px) {
   .mode-select { grid-template-columns: 1fr; }
 }
+
+.hamster-wrap.arriving .hamster {
+  animation: runSquish .22s ease-in-out infinite;
+}
+.home-button {
+  margin-left: 10px;
+  background: #fff1c9;
+}
+.stage[data-theme="rush"] {
+  background: linear-gradient(rgba(89,74,88,.84), rgba(89,74,88,.74)), repeating-linear-gradient(90deg, transparent 0 58px, rgba(77,48,44,.15) 58px 70px), linear-gradient(#8b7386, #594a58);
+}
+@media (max-width: 520px) {
+  .home-button { margin-left: 0; margin-top: 10px; }
+}
+
+.pause-home-button {
+  background: #fff1c9;
+}
+.pause-home-button.hidden { display: none; }
+.pause-message button {
+  min-width: 170px;
+}
