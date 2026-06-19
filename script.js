@@ -81,10 +81,15 @@ const logList = document.getElementById('logList');
 const recordList = document.getElementById('recordList');
 const stage = document.getElementById('stage');
 const pixelOffice = document.querySelector('.pixel-office');
+const soundButton = document.getElementById('soundButton');
 
 // v16: lightweight Web Audio API sound effects (no external audio files needed)
 let audioContext = null;
 let masterGain = null;
+let soundEnabled = true;
+let bgmTimer = null;
+let currentBgmTrack = null;
+let bgmStep = 0;
 
 function getAudioContext() {
   const AudioContextClass = window.AudioContext || window.webkitAudioContext;
@@ -93,7 +98,7 @@ function getAudioContext() {
   if (!audioContext) {
     audioContext = new AudioContextClass();
     masterGain = audioContext.createGain();
-    masterGain.gain.value = 0.22;
+    masterGain.gain.value = 0.24;
     masterGain.connect(audioContext.destination);
   }
 
@@ -105,6 +110,7 @@ function getAudioContext() {
 }
 
 function playTone({ frequency = 440, duration = 0.12, type = 'square', volume = 0.35, slideTo = null, delay = 0 }) {
+  if (!soundEnabled) return;
   const ctx = getAudioContext();
   if (!ctx || !masterGain) return;
 
@@ -129,6 +135,7 @@ function playTone({ frequency = 440, duration = 0.12, type = 'square', volume = 
 }
 
 function playNoise({ duration = 0.12, volume = 0.22, delay = 0 }) {
+  if (!soundEnabled) return;
   const ctx = getAudioContext();
   if (!ctx || !masterGain) return;
 
@@ -152,6 +159,7 @@ function playNoise({ duration = 0.12, volume = 0.22, delay = 0 }) {
 }
 
 function playSound(type) {
+  if (!soundEnabled) return;
   switch (type) {
     case 'jump':
       playTone({ frequency: 520, slideTo: 760, duration: 0.10, type: 'square', volume: 0.18 });
@@ -188,6 +196,117 @@ function playSound(type) {
       break;
     default:
       break;
+  }
+}
+
+
+function updateSoundButton() {
+  if (!soundButton) return;
+  soundButton.textContent = soundEnabled ? '🔊 사운드 ON' : '🔇 사운드 OFF';
+  soundButton.classList.toggle('muted', !soundEnabled);
+}
+
+function stopBgm() {
+  if (bgmTimer) {
+    clearInterval(bgmTimer);
+    bgmTimer = null;
+  }
+  currentBgmTrack = null;
+}
+
+function getBgmPattern(track) {
+  if (track === 'rush') {
+    return {
+      tempo: 168,
+      lead: [784, 988, 880, 784, 1046, 988, 880, 988],
+      bass: [196, 196, 220, 220, 247, 247, 220, 220],
+      type: 'square',
+      leadVolume: 0.045,
+      bassVolume: 0.028,
+    };
+  }
+  if (track === 'play') {
+    return {
+      tempo: 215,
+      lead: [523, 659, 784, 659, 698, 784, 880, 784],
+      bass: [131, 131, 165, 165, 147, 147, 196, 196],
+      type: 'triangle',
+      leadVolume: 0.04,
+      bassVolume: 0.025,
+    };
+  }
+  return {
+    tempo: 275,
+    lead: [392, 494, 523, 494, 440, 523, 587, 523],
+    bass: [98, 98, 131, 131, 110, 110, 147, 147],
+    type: 'triangle',
+    leadVolume: 0.032,
+    bassVolume: 0.02,
+  };
+}
+
+function playBgmStep() {
+  if (!soundEnabled || !currentBgmTrack || state.paused || state.gameOver || state.arriving) return;
+  const pattern = getBgmPattern(currentBgmTrack);
+  const index = bgmStep % pattern.lead.length;
+  playTone({
+    frequency: pattern.lead[index],
+    duration: pattern.tempo / 1000 * 0.72,
+    type: pattern.type,
+    volume: pattern.leadVolume,
+  });
+  if (index % 2 === 0) {
+    playTone({
+      frequency: pattern.bass[index],
+      duration: pattern.tempo / 1000 * 1.15,
+      type: 'sine',
+      volume: pattern.bassVolume,
+    });
+  }
+  bgmStep += 1;
+}
+
+function startBgm(track = 'main') {
+  if (!soundEnabled) return;
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  if (currentBgmTrack === track && bgmTimer) return;
+
+  stopBgm();
+  currentBgmTrack = track;
+  bgmStep = 0;
+  const pattern = getBgmPattern(track);
+  playBgmStep();
+  bgmTimer = setInterval(playBgmStep, pattern.tempo);
+}
+
+function getActiveBgmTrack() {
+  if (state.running && !state.paused && !state.gameOver) {
+    return state.mode === 'endless' && state.stage >= 4 ? 'rush' : 'play';
+  }
+  if (!state.gameOver && !state.arriving) return 'main';
+  return null;
+}
+
+function refreshBgm() {
+  if (!soundEnabled) {
+    stopBgm();
+    return;
+  }
+  const track = getActiveBgmTrack();
+  if (track) startBgm(track);
+  else stopBgm();
+}
+
+function toggleSound() {
+  soundEnabled = !soundEnabled;
+  updateSoundButton();
+  if (soundEnabled) {
+    getAudioContext();
+    refreshBgm();
+    playSound('rank');
+  } else {
+    stopBgm();
   }
 }
 
@@ -315,12 +434,15 @@ function resetGame() {
   renderPlayLogs();
   setMode(state.mode);
   updateHUD();
+  refreshBgm();
 }
 
 function startGame() {
   getAudioContext();
+  refreshBgm();
   state.playerName = sanitizeName(nicknameInput ? nicknameInput.value : '햄찌');
-  resetGame();
+  updateSoundButton();
+resetGame();
   state.playerName = sanitizeName(nicknameInput ? nicknameInput.value : state.playerName);
   startButton.disabled = true;
   if (nicknameInput) nicknameInput.disabled = true;
@@ -352,6 +474,7 @@ function beginRun() {
   if (pauseButton) pauseButton.classList.remove('hidden');
   addLog(`${state.playerName}님의 ${MODE_LABELS[state.mode]} 시작! 신호등, 자동차, 킥보드는 점프로 피하세요.`);
   addLog('공사 표지판은 높아서 더블점프 타이밍이 중요합니다.');
+  startBgm('play');
   requestAnimationFrame(loop);
 }
 
@@ -523,6 +646,7 @@ function updateStage() {
     } else if (endlessLevelChanged && state.endlessLevel > 0) {
       addLog(`무한 ${4 + state.endlessLevel}단계! 출근길이 더 빨라졌습니다.`);
     }
+    refreshBgm();
     return;
   }
 
@@ -531,6 +655,7 @@ function updateStage() {
   } else {
     addLog(`${state.stage}단계 진입! 장애물이 더 빨라지고 피로가 ${cfg.fatigueInterval}초마다 쌓입니다.`);
   }
+  refreshBgm();
 }
 
 function updatePhysics(dt) {
@@ -714,6 +839,7 @@ function loop(timestamp) {
 function startArrivalSequence() {
   if (state.arriving || state.gameOver) return;
   state.arriving = true;
+  stopBgm();
   state.running = false;
   state.paused = false;
   state.objects.forEach((object) => object.el.remove());
@@ -753,7 +879,8 @@ function startArrivalSequence() {
 }
 
 function goHome() {
-  resetGame();
+  updateSoundButton();
+resetGame();
 }
 
 function pauseGoHome() {
@@ -764,13 +891,15 @@ function pauseGoHome() {
   state.paused = false;
   state.gameOver = false;
   state.arriving = false;
-  resetGame();
+  updateSoundButton();
+resetGame();
   addLog('메인 화면으로 돌아왔습니다. 새 출근을 준비하세요.');
 }
 
 function endGame(success, reason = 'hp0') {
   if (state.gameOver) return;
   state.gameOver = true;
+  stopBgm();
   state.running = false;
   state.arriving = false;
   if (nicknameInput) nicknameInput.disabled = false;
@@ -839,6 +968,7 @@ function togglePause() {
     if (pauseHomeButton) pauseHomeButton.classList.remove('hidden');
     if (quitButton) quitButton.classList.toggle('hidden', state.mode !== 'endless');
     if (pauseButton) pauseButton.textContent = '계속하기';
+    stopBgm();
     addLog('일시정지! 햄찌가 잠깐 숨을 고릅니다.');
   } else {
     if (pauseMessage) pauseMessage.classList.add('hidden');
@@ -846,6 +976,7 @@ function togglePause() {
     if (quitButton) quitButton.classList.add('hidden');
     if (pauseButton) pauseButton.textContent = '일시정지';
     addLog('다시 출근 시작!');
+    refreshBgm();
     requestAnimationFrame(loop);
   }
 }
@@ -873,6 +1004,7 @@ if (pauseHomeButton) pauseHomeButton.addEventListener('click', pauseGoHome);
 if (quitButton) quitButton.addEventListener('click', quitEndlessRun);
 if (normalModeButton) normalModeButton.addEventListener('click', () => setMode('normal'));
 if (endlessModeButton) endlessModeButton.addEventListener('click', () => setMode('endless'));
+if (soundButton) soundButton.addEventListener('click', toggleSound);
 document.addEventListener('keydown', handleInput);
 stage.addEventListener('pointerdown', (event) => {
   if (event.target.tagName === 'BUTTON' || event.target.tagName === 'INPUT') return;
@@ -880,4 +1012,5 @@ stage.addEventListener('pointerdown', (event) => {
   jump();
 });
 
+updateSoundButton();
 resetGame();

@@ -361,3 +361,19 @@ button:hover { transform: translate(2px, 2px); box-shadow: 2px 2px 0 var(--shado
   .mode-option { min-width: 130px; padding: 8px 10px; font-size: 16px; }
   .nickname-input { padding: 8px 10px; }
 }
+
+/* v17: sound toggle button */
+.sound-button {
+  margin-top: 12px;
+  padding: 8px 12px;
+  font-size: 16px;
+  background: #fff1c9;
+  box-shadow: 3px 3px 0 var(--shadow);
+}
+.sound-button.muted {
+  background: #f4d9d3;
+  opacity: .9;
+}
+@media (max-width: 680px) {
+  .sound-button { margin-top: 10px; padding: 7px 10px; font-size: 15px; }
+}
