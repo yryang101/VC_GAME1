@@ -82,6 +82,115 @@ const recordList = document.getElementById('recordList');
 const stage = document.getElementById('stage');
 const pixelOffice = document.querySelector('.pixel-office');
 
+// v16: lightweight Web Audio API sound effects (no external audio files needed)
+let audioContext = null;
+let masterGain = null;
+
+function getAudioContext() {
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextClass) return null;
+
+  if (!audioContext) {
+    audioContext = new AudioContextClass();
+    masterGain = audioContext.createGain();
+    masterGain.gain.value = 0.22;
+    masterGain.connect(audioContext.destination);
+  }
+
+  if (audioContext.state === 'suspended') {
+    audioContext.resume().catch(() => {});
+  }
+
+  return audioContext;
+}
+
+function playTone({ frequency = 440, duration = 0.12, type = 'square', volume = 0.35, slideTo = null, delay = 0 }) {
+  const ctx = getAudioContext();
+  if (!ctx || !masterGain) return;
+
+  const start = ctx.currentTime + delay;
+  const oscillator = ctx.createOscillator();
+  const gain = ctx.createGain();
+
+  oscillator.type = type;
+  oscillator.frequency.setValueAtTime(frequency, start);
+  if (slideTo) {
+    oscillator.frequency.exponentialRampToValueAtTime(Math.max(40, slideTo), start + duration);
+  }
+
+  gain.gain.setValueAtTime(0.0001, start);
+  gain.gain.exponentialRampToValueAtTime(volume, start + 0.012);
+  gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+
+  oscillator.connect(gain);
+  gain.connect(masterGain);
+  oscillator.start(start);
+  oscillator.stop(start + duration + 0.03);
+}
+
+function playNoise({ duration = 0.12, volume = 0.22, delay = 0 }) {
+  const ctx = getAudioContext();
+  if (!ctx || !masterGain) return;
+
+  const sampleRate = ctx.sampleRate;
+  const buffer = ctx.createBuffer(1, Math.floor(sampleRate * duration), sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < data.length; i += 1) {
+    data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
+  }
+
+  const source = ctx.createBufferSource();
+  const gain = ctx.createGain();
+  const start = ctx.currentTime + delay;
+  gain.gain.setValueAtTime(volume, start);
+  gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+  source.buffer = buffer;
+  source.connect(gain);
+  gain.connect(masterGain);
+  source.start(start);
+  source.stop(start + duration + 0.02);
+}
+
+function playSound(type) {
+  switch (type) {
+    case 'jump':
+      playTone({ frequency: 520, slideTo: 760, duration: 0.10, type: 'square', volume: 0.18 });
+      break;
+    case 'doubleJump':
+      playTone({ frequency: 720, slideTo: 1040, duration: 0.11, type: 'square', volume: 0.2 });
+      playTone({ frequency: 1040, duration: 0.08, type: 'triangle', volume: 0.12, delay: 0.06 });
+      break;
+    case 'coffee':
+      playTone({ frequency: 660, duration: 0.09, type: 'triangle', volume: 0.18 });
+      playTone({ frequency: 880, duration: 0.12, type: 'triangle', volume: 0.16, delay: 0.08 });
+      break;
+    case 'hit':
+      playNoise({ duration: 0.10, volume: 0.18 });
+      playTone({ frequency: 150, slideTo: 85, duration: 0.16, type: 'sawtooth', volume: 0.18 });
+      break;
+    case 'success':
+      playTone({ frequency: 523, duration: 0.13, type: 'triangle', volume: 0.16 });
+      playTone({ frequency: 659, duration: 0.13, type: 'triangle', volume: 0.16, delay: 0.12 });
+      playTone({ frequency: 784, duration: 0.22, type: 'triangle', volume: 0.18, delay: 0.24 });
+      break;
+    case 'fail':
+      playTone({ frequency: 260, slideTo: 150, duration: 0.35, type: 'sawtooth', volume: 0.16 });
+      playTone({ frequency: 196, slideTo: 110, duration: 0.38, type: 'triangle', volume: 0.13, delay: 0.12 });
+      break;
+    case 'rank':
+      playTone({ frequency: 587, duration: 0.10, type: 'triangle', volume: 0.14 });
+      playTone({ frequency: 740, duration: 0.11, type: 'triangle', volume: 0.14, delay: 0.10 });
+      break;
+    case 'newRecord':
+      playTone({ frequency: 880, duration: 0.09, type: 'square', volume: 0.16 });
+      playTone({ frequency: 1175, duration: 0.10, type: 'square', volume: 0.16, delay: 0.09 });
+      playTone({ frequency: 1568, duration: 0.16, type: 'triangle', volume: 0.15, delay: 0.18 });
+      break;
+    default:
+      break;
+  }
+}
+
 function getStageConfig() {
   const base = stageInfo[state.stage - 1] || stageInfo[stageInfo.length - 1];
   if (state.mode !== 'endless' || state.stage < 4) return base;
@@ -209,6 +318,7 @@ function resetGame() {
 }
 
 function startGame() {
+  getAudioContext();
   state.playerName = sanitizeName(nicknameInput ? nicknameInput.value : '햄찌');
   resetGame();
   state.playerName = sanitizeName(nicknameInput ? nicknameInput.value : state.playerName);
@@ -251,6 +361,7 @@ function jump() {
 
   state.velocityY = state.jumpCount === 0 ? 13.8 : 12.4;
   state.jumpCount += 1;
+  playSound(state.jumpCount === 1 ? 'jump' : 'doubleJump');
   hamsterWrap.classList.add('jumping');
 
   if (state.jumpCount === 2) {
@@ -351,6 +462,7 @@ function takeDamage(object) {
   const cfg = getStageConfig();
   state.hp -= cfg.damage;
   state.hitCount += 1;
+  playSound('hit');
   state.invincibleTimer = 800;
   hamsterWrap.classList.add('hit');
   hitFlash.classList.remove('show');
@@ -369,6 +481,7 @@ function collectCoffee(object) {
   if (object.collected) return;
   object.collected = true;
   state.coffeeCount += 1;
+  playSound('coffee');
   state.hp = Math.min(MAX_HP, state.hp + 5);
   object.el.classList.add('collected');
   addLog('커피 획득! HP +5');
@@ -623,6 +736,7 @@ function startArrivalSequence() {
 
   setTimeout(() => {
     if (pixelOffice) pixelOffice.classList.add('office-open');
+    playSound('success');
     addLog('햄찌컴퍼니 출입문이 열렸습니다. 햄찌가 안으로 들어갑니다!');
   }, 980);
 
@@ -683,6 +797,15 @@ function endGame(success, reason = 'hp0') {
   savePlayLog(finalRecord);
   const record = saveBestRecord(finalRecord);
   renderPlayLogs();
+
+  if (!success) {
+    playSound('fail');
+  } else {
+    playSound(reason === 'arrival' ? 'rank' : 'rank');
+  }
+  if (record.updated) {
+    setTimeout(() => playSound('newRecord'), success ? 260 : 180);
+  }
 
   const bestText = record.best
     ? `최고 기록: ${record.best.name} / ${MODE_LABELS[record.best.mode]} / ${record.best.rank}등급 / ${record.best.mode === 'endless' ? `생존 ${formatClock(record.best.time)}` : `HP ${record.best.hp}`} / 회피 ${record.best.passed}개`
