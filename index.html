@@ -60,6 +60,8 @@
       <div class="center-message" id="centerMessage">
         <h2>햄찌 출근 준비 완료!</h2>
         <p>스페이스 / 클릭 / 모바일 터치로 점프하세요. 공중에서 한 번 더 누르면 더블점프가 됩니다.</p>
+        <label class="nickname-field" for="nicknameInput">닉네임</label>
+        <input id="nicknameInput" class="nickname-input" type="text" maxlength="10" placeholder="예: 예리" />
         <button id="startButton" type="button">출근 시작</button>
       </div>
     </section>
@@ -68,6 +70,11 @@
       <div><strong>핵심 메커닉</strong><p>점프 타이밍으로 장애물 피하기</p></div>
       <div><strong>승패 조건</strong><p>3분 동안 HP가 0이 되지 않게 생존</p></div>
       <div><strong>조작 방식</strong><p>스페이스 / 클릭 / 터치 · 더블점프</p></div>
+    </section>
+
+    <section class="records-panel">
+      <h3>플레이 기록</h3>
+      <ol id="recordList"><li>아직 저장된 기록이 없습니다.</li></ol>
     </section>
 
     <section class="log-panel">

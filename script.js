@@ -1,14 +1,15 @@
 const GAME_TIME = 180;
 const MAX_HP = 100;
 const GROUND_Y = 0;
-const FATIGUE_INTERVAL = 10;
 const FATIGUE_DAMAGE = 1;
 const TUTORIAL_SECONDS = 5;
+const PLAY_LOG_KEY = 'hamzziPlayLogs';
+const BEST_RECORD_KEY = 'hamzziBestRecord';
 
 const stageInfo = [
-  { stage: 1, name: '1단계 · 집 앞 골목', damage: 3, speed: 3.7, spawn: 1850, theme: 'home' },
-  { stage: 2, name: '2단계 · 버스 정류장', damage: 5, speed: 4.6, spawn: 1600, theme: 'bus' },
-  { stage: 3, name: '3단계 · 햄찌컴퍼니 앞', damage: 10, speed: 5.4, spawn: 1380, theme: 'office' },
+  { stage: 1, name: '1단계 · 집 앞 골목', damage: 3, speed: 3.7, spawn: 1850, fatigueInterval: 10, theme: 'home' },
+  { stage: 2, name: '2단계 · 버스 정류장', damage: 5, speed: 4.6, spawn: 1600, fatigueInterval: 8, theme: 'bus' },
+  { stage: 3, name: '3단계 · 햄찌컴퍼니 앞', damage: 10, speed: 5.4, spawn: 1380, fatigueInterval: 5, theme: 'office' },
 ];
 
 const objectTypes = [
@@ -37,6 +38,7 @@ const state = {
   passed: 0,
   coffeeCount: 0,
   hitCount: 0,
+  playerName: '햄찌',
 };
 
 const timeText = document.getElementById('timeText');
@@ -50,11 +52,13 @@ const obstacleLayer = document.getElementById('obstacleLayer');
 const hitFlash = document.getElementById('hitFlash');
 const centerMessage = document.getElementById('centerMessage');
 const startButton = document.getElementById('startButton');
+const nicknameInput = document.getElementById('nicknameInput');
 const resultPanel = document.getElementById('resultPanel');
 const endingTitle = document.getElementById('endingTitle');
 const endingText = document.getElementById('endingText');
 const restartButton = document.getElementById('restartButton');
 const logList = document.getElementById('logList');
+const recordList = document.getElementById('recordList');
 const stage = document.getElementById('stage');
 
 function getStageConfig() {
@@ -68,18 +72,23 @@ function formatTime(seconds) {
   return `${mm}:${ss}`;
 }
 
+function sanitizeName(value) {
+  const name = String(value || '').trim().replace(/[<>]/g, '').slice(0, 10);
+  return name || '햄찌';
+}
+
 function addLog(text) {
   const li = document.createElement('li');
   li.textContent = text;
   logList.prepend(li);
-  while (logList.children.length > 6) logList.lastChild.remove();
+  while (logList.children.length > 7) logList.lastChild.remove();
 }
 
 function updateHUD() {
   const cfg = getStageConfig();
   timeText.textContent = formatTime(state.elapsed);
   hpText.textContent = `${Math.max(0, Math.round(state.hp))} / 100`;
-  hpFill.style.width = `${Math.max(0, state.hp)}%`;
+  hpFill.style.width = `${Math.max(0, Math.min(100, state.hp))}%`;
   stageText.textContent = `${state.stage}단계`;
   stageBanner.textContent = cfg.name;
   progressFill.style.width = `${Math.min(100, (state.elapsed / GAME_TIME) * 100)}%`;
@@ -112,15 +121,20 @@ function resetGame() {
   centerMessage.querySelector('p').textContent = '스페이스/클릭/터치로 점프하세요. 공중에서 한 번 더 누르면 더블점프가 됩니다.';
   startButton.textContent = '출근 시작';
   startButton.disabled = false;
+  if (nicknameInput) nicknameInput.disabled = false;
   logList.innerHTML = '<li>햄찌가 휴대폰과 사원증을 챙겼습니다.</li>';
+  renderPlayLogs();
   updateHUD();
 }
 
 function startGame() {
+  state.playerName = sanitizeName(nicknameInput ? nicknameInput.value : '햄찌');
   resetGame();
+  state.playerName = sanitizeName(nicknameInput ? nicknameInput.value : state.playerName);
   startButton.disabled = true;
+  if (nicknameInput) nicknameInput.disabled = true;
   let count = TUTORIAL_SECONDS;
-  centerMessage.querySelector('h2').textContent = '튜토리얼';
+  centerMessage.querySelector('h2').textContent = `${state.playerName}님, 출근 준비!`;
   centerMessage.querySelector('p').textContent = `장애물은 피하고, 커피는 획득하세요. ${count}초 후 출근이 시작됩니다.`;
   startButton.textContent = '준비 중...';
 
@@ -138,7 +152,7 @@ function startGame() {
 function beginRun() {
   state.running = true;
   centerMessage.classList.add('hidden');
-  addLog('출근 시작! 신호등, 자동차, 킥보드는 점프로 피하세요.');
+  addLog(`${state.playerName}님의 출근 시작! 신호등, 자동차, 킥보드는 점프로 피하세요.`);
   requestAnimationFrame(loop);
 }
 
@@ -184,6 +198,7 @@ function createObject() {
     name: type.name,
     passed: false,
     collected: false,
+    resolved: false,
   };
   state.objects.push(object);
 }
@@ -193,23 +208,26 @@ function getHamsterBox() {
   const stageRect = stage.getBoundingClientRect();
 
   return {
-    left: rect.left - stageRect.left + rect.width * 0.45,
-    right: rect.left - stageRect.left + rect.width * 0.56,
-    top: rect.top - stageRect.top + rect.height * 0.58,
-    bottom: rect.top - stageRect.top + rect.height * 0.76,
+    left: rect.left - stageRect.left + rect.width * 0.24,
+    right: rect.left - stageRect.left + rect.width * 0.70,
+    top: rect.top - stageRect.top + rect.height * 0.34,
+    bottom: rect.top - stageRect.top + rect.height * 0.88,
   };
 }
 
 function getObjectBox(object) {
   const rect = object.el.getBoundingClientRect();
   const stageRect = stage.getBoundingClientRect();
-  const padding = object.kind === 'item' ? 0.22 : 0.42;
+  const isItem = object.kind === 'item';
+  const xPadding = isItem ? 0.18 : 0.20;
+  const yTopPadding = isItem ? 0.18 : 0.18;
+  const yBottomPadding = isItem ? 0.12 : 0.10;
 
   return {
-    left: rect.left - stageRect.left + rect.width * padding,
-    right: rect.left - stageRect.left + rect.width * (1 - padding),
-    top: rect.top - stageRect.top + rect.height * (object.kind === 'item' ? 0.18 : 0.48),
-    bottom: rect.top - stageRect.top + rect.height * (object.kind === 'item' ? 0.88 : 0.78),
+    left: rect.left - stageRect.left + rect.width * xPadding,
+    right: rect.left - stageRect.left + rect.width * (1 - xPadding),
+    top: rect.top - stageRect.top + rect.height * yTopPadding,
+    bottom: rect.top - stageRect.top + rect.height * (1 - yBottomPadding),
   };
 }
 
@@ -217,18 +235,26 @@ function isColliding(a, b) {
   return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
 }
 
-function takeDamage() {
+function resolveObstacle(object) {
+  if (object.resolved) return;
+  object.resolved = true;
+  takeDamage(object);
+  object.el.classList.add('hit-object');
+  setTimeout(() => object.el.remove(), 120);
+}
+
+function takeDamage(object) {
   if (state.invincibleTimer > 0) return;
 
   const cfg = getStageConfig();
   state.hp -= cfg.damage;
   state.hitCount += 1;
-  state.invincibleTimer = 900;
+  state.invincibleTimer = 800;
   hamsterWrap.classList.add('hit');
   hitFlash.classList.remove('show');
   void hitFlash.offsetWidth;
   hitFlash.classList.add('show');
-  addLog(`${state.stage}단계 장애물 충돌! HP -${cfg.damage}`);
+  addLog(`${object ? object.name : '장애물'} 충돌! ${state.stage}단계 피해 HP -${cfg.damage}`);
 
   setTimeout(() => hamsterWrap.classList.remove('hit'), 450);
 
@@ -248,11 +274,12 @@ function collectCoffee(object) {
 }
 
 function applyFatigue(dt) {
+  const cfg = getStageConfig();
   state.fatigueTimer += dt;
-  if (state.fatigueTimer >= FATIGUE_INTERVAL) {
-    state.fatigueTimer -= FATIGUE_INTERVAL;
+  while (state.fatigueTimer >= cfg.fatigueInterval) {
+    state.fatigueTimer -= cfg.fatigueInterval;
     state.hp -= FATIGUE_DAMAGE;
-    addLog('출근 피로 누적! HP -1');
+    addLog(`${state.stage}단계 출근 피로 누적! HP -1`);
     if (state.hp <= 0) endGame(false);
   }
 }
@@ -261,7 +288,13 @@ function updateStage() {
   const nextStage = state.elapsed < 60 ? 1 : state.elapsed < 120 ? 2 : 3;
   if (nextStage !== state.stage) {
     state.stage = nextStage;
-    addLog(`${state.stage}단계 진입! 장애물이 더 빨라집니다.`);
+    state.fatigueTimer = 0;
+    const cfg = getStageConfig();
+    if (state.stage === 3) {
+      addLog('3단계 진입! 햄찌컴퍼니가 가까워져 누적 피로가 5초마다 증가합니다.');
+    } else {
+      addLog(`${state.stage}단계 진입! 장애물이 더 빨라지고 피로가 ${cfg.fatigueInterval}초마다 쌓입니다.`);
+    }
   }
 }
 
@@ -301,18 +334,18 @@ function updateObjects(dt) {
 
   const hamsterBox = getHamsterBox();
   state.objects.forEach((object) => {
-    if (object.collected) return;
+    if (object.collected || object.resolved) return;
     if (!isColliding(hamsterBox, getObjectBox(object))) return;
 
     if (object.kind === 'item') {
       collectCoffee(object);
     } else {
-      takeDamage();
+      resolveObstacle(object);
     }
   });
 
   state.objects = state.objects.filter((object) => {
-    if (object.collected) return false;
+    if (object.collected || object.resolved) return false;
     if (object.x < -120) {
       object.el.remove();
       return false;
@@ -333,23 +366,28 @@ function getRank(success) {
 
 function readBestRecord() {
   try {
-    return JSON.parse(localStorage.getItem('hamzziBestRecord')) || null;
+    return JSON.parse(localStorage.getItem(BEST_RECORD_KEY)) || null;
   } catch (error) {
     return null;
   }
 }
 
-function saveBestRecord(rank, success) {
-  const record = {
-    rank,
-    success,
-    hp: Math.max(0, Math.round(state.hp)),
-    passed: state.passed,
-    coffee: state.coffeeCount,
-    hits: state.hitCount,
-    date: new Date().toISOString(),
-  };
+function readPlayLogs() {
+  try {
+    const logs = JSON.parse(localStorage.getItem(PLAY_LOG_KEY));
+    return Array.isArray(logs) ? logs : [];
+  } catch (error) {
+    return [];
+  }
+}
 
+function savePlayLog(record) {
+  const logs = readPlayLogs();
+  logs.unshift(record);
+  localStorage.setItem(PLAY_LOG_KEY, JSON.stringify(logs.slice(0, 10)));
+}
+
+function saveBestRecord(record) {
   const rankScore = { S: 6, A: 5, B: 4, C: 3, D: 2, F: 1 };
   const best = readBestRecord();
   const isBetter = !best ||
@@ -358,11 +396,32 @@ function saveBestRecord(rank, success) {
     (rankScore[record.rank] === rankScore[best.rank] && record.hp === best.hp && record.passed > best.passed);
 
   if (isBetter) {
-    localStorage.setItem('hamzziBestRecord', JSON.stringify(record));
+    localStorage.setItem(BEST_RECORD_KEY, JSON.stringify(record));
     return { best: record, updated: true };
   }
 
   return { best, updated: false };
+}
+
+function formatDate(isoString) {
+  const date = new Date(isoString);
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  const hh = String(date.getHours()).padStart(2, '0');
+  const min = String(date.getMinutes()).padStart(2, '0');
+  return `${mm}/${dd} ${hh}:${min}`;
+}
+
+function renderPlayLogs() {
+  if (!recordList) return;
+  const logs = readPlayLogs();
+  if (!logs.length) {
+    recordList.innerHTML = '<li>아직 저장된 기록이 없습니다.</li>';
+    return;
+  }
+  recordList.innerHTML = logs.slice(0, 5).map((log) => (
+    `<li><strong>${log.name}</strong> · ${log.rank}등급 · HP ${log.hp} · 회피 ${log.passed}개 · ${formatDate(log.date)}</li>`
+  )).join('');
 }
 
 function loop(timestamp) {
@@ -392,22 +451,37 @@ function endGame(success) {
   if (state.gameOver) return;
   state.gameOver = true;
   state.running = false;
+  if (nicknameInput) nicknameInput.disabled = false;
   updateHUD();
   resultPanel.classList.remove('hidden');
 
   const rank = getRank(success);
-  const record = saveBestRecord(rank, success);
+  const finalRecord = {
+    name: state.playerName,
+    rank,
+    success,
+    hp: Math.max(0, Math.round(state.hp)),
+    passed: state.passed,
+    coffee: state.coffeeCount,
+    hits: state.hitCount,
+    time: Math.floor(state.elapsed),
+    date: new Date().toISOString(),
+  };
+  savePlayLog(finalRecord);
+  const record = saveBestRecord(finalRecord);
+  renderPlayLogs();
+
   const bestText = record.best
-    ? `최고 기록: ${record.best.rank}등급 / HP ${record.best.hp} / 회피 ${record.best.passed}개`
+    ? `최고 기록: ${record.best.name} / ${record.best.rank}등급 / HP ${record.best.hp} / 회피 ${record.best.passed}개`
     : '최고 기록: 아직 없음';
   const newRecordText = record.updated ? '<br><strong class="new-record">NEW BEST!</strong>' : '';
 
   if (success) {
     endingTitle.textContent = `출근 성공! ${rank}등급`;
-    endingText.innerHTML = `햄찌가 3분 출근길을 버텼습니다.<br>남은 HP: ${Math.max(0, Math.round(state.hp))} / 회피 장애물: ${state.passed}개<br>커피 획득: ${state.coffeeCount}잔 / 피격 횟수: ${state.hitCount}회<br>${bestText}${newRecordText}`;
+    endingText.innerHTML = `${state.playerName}님의 햄찌가 3분 출근길을 버텼습니다.<br>남은 HP: ${finalRecord.hp} / 회피 장애물: ${state.passed}개<br>커피 획득: ${state.coffeeCount}잔 / 피격 횟수: ${state.hitCount}회<br>${bestText}${newRecordText}`;
   } else {
     endingTitle.textContent = `출근 실패! ${rank}등급`;
-    endingText.innerHTML = `햄찌가 출근길에서 녹초가 됐습니다.<br>버틴 시간: ${Math.floor(state.elapsed)}초 / 회피 장애물: ${state.passed}개<br>커피 획득: ${state.coffeeCount}잔 / 피격 횟수: ${state.hitCount}회<br>${bestText}${newRecordText}`;
+    endingText.innerHTML = `${state.playerName}님의 햄찌가 출근길에서 녹초가 됐습니다.<br>버틴 시간: ${Math.floor(state.elapsed)}초 / 회피 장애물: ${state.passed}개<br>커피 획득: ${state.coffeeCount}잔 / 피격 횟수: ${state.hitCount}회<br>${bestText}${newRecordText}`;
   }
 }
 
@@ -423,7 +497,7 @@ startButton.addEventListener('click', startGame);
 restartButton.addEventListener('click', startGame);
 document.addEventListener('keydown', handleInput);
 stage.addEventListener('pointerdown', (event) => {
-  if (event.target.tagName === 'BUTTON') return;
+  if (event.target.tagName === 'BUTTON' || event.target.tagName === 'INPUT') return;
   jump();
 });
 

@@ -114,3 +114,42 @@ button:hover { transform: translate(2px, 2px); box-shadow: 2px 2px 0 var(--shado
 .coffee-item { font-size: 34px; }
 @keyframes itemBounce { from { margin-bottom: 0; } to { margin-bottom: 8px; } }
 .new-record { display: inline-block; margin-top: 8px; color: #327a49; font-family: 'Press Start 2P', monospace; font-size: 12px; }
+
+.nickname-field {
+  display: block;
+  margin-top: 4px;
+  font-size: 18px;
+  color: var(--cream);
+}
+.nickname-input {
+  width: min(260px, 90%);
+  border: 4px solid var(--brown-dark);
+  background: var(--cream);
+  color: var(--brown-dark);
+  padding: 12px 14px;
+  font-family: 'Jua', system-ui, sans-serif;
+  font-size: 20px;
+  text-align: center;
+  box-shadow: 4px 4px 0 var(--shadow);
+}
+.nickname-input:disabled { opacity: .72; }
+.records-panel {
+  margin: 16px;
+  padding: 14px;
+  border: 4px solid var(--brown-dark);
+  background: #fff9ef;
+  box-shadow: 4px 4px 0 var(--shadow);
+}
+.records-panel h3 { margin-bottom: 8px; }
+.records-panel ol {
+  margin: 0;
+  padding-left: 24px;
+  max-height: 120px;
+  overflow: auto;
+  font-size: 18px;
+}
+.hit-object {
+  opacity: .25;
+  transform: scale(.9) !important;
+  transition: opacity .12s ease, transform .12s ease;
+}
