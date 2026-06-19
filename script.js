@@ -80,6 +80,7 @@ const homeButton = document.getElementById('homeButton');
 const logList = document.getElementById('logList');
 const recordList = document.getElementById('recordList');
 const stage = document.getElementById('stage');
+const pixelOffice = document.querySelector('.pixel-office');
 
 function getStageConfig() {
   const base = stageInfo[state.stage - 1] || stageInfo[stageInfo.length - 1];
@@ -183,8 +184,11 @@ function resetGame() {
   state.lastTime = 0;
   hamsterWrap.style.transition = '';
   hamsterWrap.style.left = '';
+  hamsterWrap.style.opacity = '';
   hamsterWrap.style.transform = 'translateY(0px)';
-  hamsterWrap.classList.remove('hit', 'jumping', 'arriving');
+  hamsterWrap.classList.remove('hit', 'jumping', 'arriving', 'entering-office');
+  stage.classList.remove('office-arrival');
+  if (pixelOffice) pixelOffice.classList.remove('office-open');
   resultPanel.classList.add('hidden');
   centerMessage.classList.remove('hidden');
   centerMessage.querySelector('h2').textContent = '햄찌 출근 준비 완료!';
@@ -610,14 +614,28 @@ function startArrivalSequence() {
   if (pauseHomeButton) pauseHomeButton.classList.add('hidden');
   hamsterWrap.classList.remove('hit', 'jumping');
   hamsterWrap.classList.add('arriving');
-  hamsterWrap.style.transition = 'left 1.85s ease-in, transform .2s ease';
+  stage.classList.add('office-arrival');
+  hamsterWrap.style.opacity = '1';
+  hamsterWrap.style.transition = 'left 1.45s ease-in, transform .28s ease, opacity .45s ease';
   hamsterWrap.style.transform = 'translateY(0px)';
-  hamsterWrap.style.left = `${Math.max(120, stage.clientWidth - 170)}px`;
+  hamsterWrap.style.left = `${Math.max(120, stage.clientWidth - 158)}px`;
   addLog('출근 성공 직전! 햄찌가 햄찌컴퍼니 문 앞까지 달려갑니다.');
+
   setTimeout(() => {
-    hamsterWrap.classList.remove('arriving');
+    if (pixelOffice) pixelOffice.classList.add('office-open');
+    addLog('햄찌컴퍼니 출입문이 열렸습니다. 햄찌가 안으로 들어갑니다!');
+  }, 980);
+
+  setTimeout(() => {
+    hamsterWrap.classList.add('entering-office');
+    hamsterWrap.style.transform = 'translateY(0px) scale(.72)';
+    hamsterWrap.style.opacity = '0';
+  }, 1420);
+
+  setTimeout(() => {
+    hamsterWrap.classList.remove('arriving', 'entering-office');
     endGame(true, 'arrival');
-  }, 1950);
+  }, 2150);
 }
 
 function goHome() {
