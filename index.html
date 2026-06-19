@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>햄찌 출근시키기</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="game-shell">
+    <section class="title-panel">
+      <p class="eyebrow">PIXEL COMMUTE MINI GAME</p>
+      <h1>햄찌 출근시키기</h1>
+      <p class="subtitle">늦잠 잔 회사원 햄찌를 무사히 회사까지 보내주세요.</p>
+    </section>
+
+    <section class="status-panel" aria-label="게임 상태">
+      <div class="status-card">
+        <span>출근까지</span>
+        <strong id="timeText">5분</strong>
+      </div>
+      <div class="status-card">
+        <span>기분</span>
+        <strong id="moodText">80</strong>
+      </div>
+      <div class="status-card">
+        <span>커피</span>
+        <strong id="coffeeText">0</strong>
+      </div>
+    </section>
+
+    <section class="stage">
+      <div class="road-line"></div>
+      <div class="pixel-office">NTOS<br />GAME</div>
+      <div class="hamster-wrap" id="hamsterWrap">
+        <div class="hamster shadow"></div>
+        <div class="hamster">
+          <div class="ear left"></div>
+          <div class="ear right"></div>
+          <div class="face">
+            <div class="eye left"></div>
+            <div class="eye right"></div>
+            <div class="nose"></div>
+            <div class="blush left"></div>
+            <div class="blush right"></div>
+          </div>
+          <div class="tie"></div>
+          <div class="phone"></div>
+          <div class="coffee-cup"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="dialogue-panel">
+      <p class="location" id="locationText">햄찌의 방</p>
+      <h2 id="storyTitle">앗, 알람을 못 들었어요!</h2>
+      <p id="storyText">첫 출근 날인데 출근까지 5분밖에 남지 않았습니다. 햄찌는 휴대폰과 커피를 챙기고 급하게 나가려 합니다.</p>
+      <div class="choices" id="choices"></div>
+    </section>
+
+    <section class="log-panel">
+      <h3>출근 로그</h3>
+      <ul id="logList">
+        <li>게임 시작! 햄찌가 눈을 떴습니다.</li>
+      </ul>
+    </section>
+
+    <section class="result-panel hidden" id="resultPanel">
+      <div class="result-card">
+        <p class="eyebrow">ENDING</p>
+        <h2 id="endingTitle"></h2>
+        <p id="endingText"></p>
+        <button id="restartButton">다시 출근하기</button>
+      </div>
+    </section>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
