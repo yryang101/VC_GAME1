@@ -11,29 +11,35 @@
     <section class="title-panel">
       <p class="eyebrow">PIXEL COMMUTE MINI GAME</p>
       <h1>햄찌 출근시키기</h1>
-      <p class="subtitle">늦잠 잔 회사원 햄찌를 무사히 회사까지 보내주세요.</p>
+      <p class="subtitle">회사원 햄찌를 햄찌컴퍼니까지 무사히 보내주세요.</p>
     </section>
 
     <section class="status-panel" aria-label="게임 상태">
       <div class="status-card">
-        <span>출근까지</span>
-        <strong id="timeText">5분</strong>
+        <span>남은 시간</span>
+        <strong id="timeText">03:00</strong>
+      </div>
+      <div class="status-card hp-card">
+        <span>HP</span>
+        <strong id="hpText">100 / 100</strong>
+        <div class="hp-track"><div id="hpFill"></div></div>
       </div>
       <div class="status-card">
-        <span>기분</span>
-        <strong id="moodText">80</strong>
-      </div>
-      <div class="status-card">
-        <span>커피</span>
-        <strong id="coffeeText">0</strong>
+        <span>현재 단계</span>
+        <strong id="stageText">1단계</strong>
       </div>
     </section>
 
-    <section class="stage">
-      <div class="road-line"></div>
-      <div class="pixel-office">NTOS<br />GAME</div>
+    <section class="stage" id="stage" aria-label="게임 화면">
+      <div class="skyline"></div>
+      <div class="cloud cloud-one"></div>
+      <div class="cloud cloud-two"></div>
+      <div class="progress-track"><div id="progressFill"></div></div>
+      <div class="stage-banner" id="stageBanner">1단계 · 집 앞 골목</div>
+      <div class="pixel-office">HAMZZI<br />COMPANY</div>
+      <div id="obstacleLayer"></div>
+      <div class="road-lane"><div class="dash-line"></div></div>
       <div class="hamster-wrap" id="hamsterWrap">
-        <div class="hamster shadow"></div>
         <div class="hamster">
           <div class="ear left"></div>
           <div class="ear right"></div>
@@ -44,37 +50,40 @@
             <div class="blush left"></div>
             <div class="blush right"></div>
           </div>
+          <div class="shirt"></div>
           <div class="tie"></div>
           <div class="phone"></div>
           <div class="coffee-cup"></div>
         </div>
       </div>
+      <div class="hit-flash" id="hitFlash"></div>
+      <div class="center-message" id="centerMessage">
+        <h2>햄찌 출근 준비 완료!</h2>
+        <p>스페이스 / 클릭 / 모바일 터치로 점프하세요. 공중에서 한 번 더 누르면 더블점프가 됩니다.</p>
+        <button id="startButton" type="button">출근 시작</button>
+      </div>
     </section>
 
-    <section class="dialogue-panel">
-      <p class="location" id="locationText">햄찌의 방</p>
-      <h2 id="storyTitle">앗, 알람을 못 들었어요!</h2>
-      <p id="storyText">첫 출근 날인데 출근까지 5분밖에 남지 않았습니다. 햄찌는 휴대폰과 커피를 챙기고 급하게 나가려 합니다.</p>
-      <div class="choices" id="choices"></div>
+    <section class="guide-panel">
+      <div><strong>핵심 메커닉</strong><p>점프 타이밍으로 장애물 피하기</p></div>
+      <div><strong>승패 조건</strong><p>3분 동안 HP가 0이 되지 않게 생존</p></div>
+      <div><strong>조작 방식</strong><p>스페이스 / 클릭 / 터치 · 더블점프</p></div>
     </section>
 
     <section class="log-panel">
       <h3>출근 로그</h3>
-      <ul id="logList">
-        <li>게임 시작! 햄찌가 눈을 떴습니다.</li>
-      </ul>
+      <ul id="logList"><li>햄찌가 커피와 휴대폰을 챙겼습니다.</li></ul>
     </section>
 
     <section class="result-panel hidden" id="resultPanel">
       <div class="result-card">
-        <p class="eyebrow">ENDING</p>
+        <p class="eyebrow">RESULT</p>
         <h2 id="endingTitle"></h2>
         <p id="endingText"></p>
-        <button id="restartButton">다시 출근하기</button>
+        <button id="restartButton" type="button">다시 출근하기</button>
       </div>
     </section>
   </main>
-
   <script src="script.js"></script>
 </body>
 </html>
