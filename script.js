@@ -5,8 +5,9 @@ const FATIGUE_DAMAGE = 1;
 const TUTORIAL_SECONDS = 5;
 const COFFEE_MIN_INTERVAL = 24000;
 const COFFEE_MAX_INTERVAL = 34000;
-const PLAY_LOG_KEY = 'hamzziPlayLogsV10';
-const BEST_RECORD_KEY = 'hamzziBestRecordsV10';
+const PLAY_LOG_KEY = 'hamzziPlayLogsV19';
+const BEST_RECORD_KEY = 'hamzziBestRecordsV19';
+const BGM_VOLUME_KEY = 'hamzziBgmVolumeV20';
 const MODE_LABELS = { normal: '기본모드', endless: '무한모드' };
 
 const stageInfo = [
@@ -82,34 +83,75 @@ const recordList = document.getElementById('recordList');
 const stage = document.getElementById('stage');
 const pixelOffice = document.querySelector('.pixel-office');
 const soundButton = document.getElementById('soundButton');
+const bgmVolumeSlider = document.getElementById('bgmVolumeSlider');
+const bgmVolumeValue = document.getElementById('bgmVolumeValue');
 
-// v16: lightweight Web Audio API sound effects (no external audio files needed)
 let audioContext = null;
 let masterGain = null;
+let bgmGain = null;
 let soundEnabled = true;
+let audioUnlocked = false;
 let bgmTimer = null;
 let currentBgmTrack = null;
 let bgmStep = 0;
+let bgmVolume = Number(localStorage.getItem(BGM_VOLUME_KEY) || 35);
+if (!Number.isFinite(bgmVolume)) bgmVolume = 35;
+bgmVolume = Math.max(0, Math.min(100, bgmVolume));
 
 function getAudioContext() {
   const AudioContextClass = window.AudioContext || window.webkitAudioContext;
   if (!AudioContextClass) return null;
-
   if (!audioContext) {
     audioContext = new AudioContextClass();
     masterGain = audioContext.createGain();
-    masterGain.gain.value = 0.24;
+    bgmGain = audioContext.createGain();
+    masterGain.gain.value = 0.26;
+    bgmGain.gain.value = bgmVolume / 100;
+    bgmGain.connect(masterGain);
     masterGain.connect(audioContext.destination);
   }
-
   if (audioContext.state === 'suspended') {
     audioContext.resume().catch(() => {});
   }
-
+  audioUnlocked = true;
   return audioContext;
 }
 
-function playTone({ frequency = 440, duration = 0.12, type = 'square', volume = 0.35, slideTo = null, delay = 0 }) {
+function updateSoundButton() {
+  if (!soundButton) return;
+  soundButton.textContent = soundEnabled ? '🔊 사운드 ON' : '🔇 사운드 OFF';
+  soundButton.classList.toggle('muted', !soundEnabled);
+}
+
+function updateBgmVolumeUI() {
+  const normalized = Math.max(0, Math.min(100, Math.round(bgmVolume)));
+  bgmVolume = normalized;
+  if (bgmVolumeSlider) bgmVolumeSlider.value = String(normalized);
+  if (bgmVolumeValue) bgmVolumeValue.textContent = `${normalized}%`;
+}
+
+function applyBgmVolume() {
+  updateBgmVolumeUI();
+  if (bgmGain) {
+    const ctx = audioContext;
+    const target = bgmVolume / 100;
+    if (ctx) {
+      bgmGain.gain.cancelScheduledValues(ctx.currentTime);
+      bgmGain.gain.setTargetAtTime(target, ctx.currentTime, 0.035);
+    } else {
+      bgmGain.gain.value = target;
+    }
+  }
+}
+
+function setBgmVolume(value) {
+  bgmVolume = Math.max(0, Math.min(100, Number(value)));
+  if (!Number.isFinite(bgmVolume)) bgmVolume = 35;
+  localStorage.setItem(BGM_VOLUME_KEY, String(Math.round(bgmVolume)));
+  applyBgmVolume();
+}
+
+function playTone({ frequency = 440, duration = 0.12, type = 'square', volume = 0.35, slideTo = null, delay = 0, destination = null }) {
   if (!soundEnabled) return;
   const ctx = getAudioContext();
   if (!ctx || !masterGain) return;
@@ -117,21 +159,20 @@ function playTone({ frequency = 440, duration = 0.12, type = 'square', volume = 
   const start = ctx.currentTime + delay;
   const oscillator = ctx.createOscillator();
   const gain = ctx.createGain();
+  const target = destination || masterGain;
 
   oscillator.type = type;
   oscillator.frequency.setValueAtTime(frequency, start);
-  if (slideTo) {
-    oscillator.frequency.exponentialRampToValueAtTime(Math.max(40, slideTo), start + duration);
-  }
+  if (slideTo) oscillator.frequency.exponentialRampToValueAtTime(Math.max(40, slideTo), start + duration);
 
   gain.gain.setValueAtTime(0.0001, start);
-  gain.gain.exponentialRampToValueAtTime(volume, start + 0.012);
+  gain.gain.exponentialRampToValueAtTime(volume, start + 0.01);
   gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
 
   oscillator.connect(gain);
-  gain.connect(masterGain);
+  gain.connect(target);
   oscillator.start(start);
-  oscillator.stop(start + duration + 0.03);
+  oscillator.stop(start + duration + 0.04);
 }
 
 function playNoise({ duration = 0.12, volume = 0.22, delay = 0 }) {
@@ -142,9 +183,7 @@ function playNoise({ duration = 0.12, volume = 0.22, delay = 0 }) {
   const sampleRate = ctx.sampleRate;
   const buffer = ctx.createBuffer(1, Math.floor(sampleRate * duration), sampleRate);
   const data = buffer.getChannelData(0);
-  for (let i = 0; i < data.length; i += 1) {
-    data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
-  }
+  for (let i = 0; i < data.length; i += 1) data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
 
   const source = ctx.createBufferSource();
   const gain = ctx.createGain();
@@ -199,97 +238,55 @@ function playSound(type) {
   }
 }
 
-
-function updateSoundButton() {
-  if (!soundButton) return;
-  soundButton.textContent = soundEnabled ? '🔊 사운드 ON' : '🔇 사운드 OFF';
-  soundButton.classList.toggle('muted', !soundEnabled);
-}
-
-function stopBgm() {
-  if (bgmTimer) {
-    clearInterval(bgmTimer);
-    bgmTimer = null;
-  }
-  currentBgmTrack = null;
-}
-
 function getBgmPattern(track) {
   if (track === 'rush') {
-    return {
-      tempo: 168,
-      lead: [784, 988, 880, 784, 1046, 988, 880, 988],
-      bass: [196, 196, 220, 220, 247, 247, 220, 220],
-      type: 'square',
-      leadVolume: 0.045,
-      bassVolume: 0.028,
-    };
+    return { interval: 155, lead: [784, 988, 880, 784, 1046, 988, 880, 988], bass: [196, 196, 220, 220, 247, 247, 220, 220], type: 'square', leadVolume: 0.14, bassVolume: 0.08 };
   }
   if (track === 'play') {
-    return {
-      tempo: 215,
-      lead: [523, 659, 784, 659, 698, 784, 880, 784],
-      bass: [131, 131, 165, 165, 147, 147, 196, 196],
-      type: 'triangle',
-      leadVolume: 0.04,
-      bassVolume: 0.025,
-    };
+    return { interval: 205, lead: [523, 659, 784, 659, 698, 784, 880, 784], bass: [131, 131, 165, 165, 147, 147, 196, 196], type: 'triangle', leadVolume: 0.13, bassVolume: 0.07 };
   }
-  return {
-    tempo: 275,
-    lead: [392, 494, 523, 494, 440, 523, 587, 523],
-    bass: [98, 98, 131, 131, 110, 110, 147, 147],
-    type: 'triangle',
-    leadVolume: 0.032,
-    bassVolume: 0.02,
-  };
+  return { interval: 260, lead: [392, 494, 523, 494, 440, 523, 587, 523], bass: [98, 98, 131, 131, 110, 110, 147, 147], type: 'triangle', leadVolume: 0.11, bassVolume: 0.06 };
 }
 
 function playBgmStep() {
   if (!soundEnabled || !currentBgmTrack || state.paused || state.gameOver || state.arriving) return;
   const pattern = getBgmPattern(currentBgmTrack);
   const index = bgmStep % pattern.lead.length;
-  playTone({
-    frequency: pattern.lead[index],
-    duration: pattern.tempo / 1000 * 0.72,
-    type: pattern.type,
-    volume: pattern.leadVolume,
-  });
+  playTone({ frequency: pattern.lead[index], duration: (pattern.interval / 1000) * 0.82, type: pattern.type, volume: pattern.leadVolume, destination: bgmGain });
   if (index % 2 === 0) {
-    playTone({
-      frequency: pattern.bass[index],
-      duration: pattern.tempo / 1000 * 1.15,
-      type: 'sine',
-      volume: pattern.bassVolume,
-    });
+    playTone({ frequency: pattern.bass[index], duration: (pattern.interval / 1000) * 1.35, type: 'sine', volume: pattern.bassVolume, destination: bgmGain });
   }
   bgmStep += 1;
 }
 
-function startBgm(track = 'main') {
-  if (!soundEnabled) return;
-  const ctx = getAudioContext();
-  if (!ctx) return;
-  if (currentBgmTrack === track && bgmTimer) return;
+function stopBgm() {
+  if (bgmTimer) clearInterval(bgmTimer);
+  bgmTimer = null;
+  currentBgmTrack = null;
+  bgmStep = 0;
+}
 
+function startBgm(track = 'main') {
+  if (!soundEnabled || !audioUnlocked) return;
+  getAudioContext();
+  applyBgmVolume();
+  if (currentBgmTrack === track && bgmTimer) return;
   stopBgm();
   currentBgmTrack = track;
   bgmStep = 0;
   const pattern = getBgmPattern(track);
   playBgmStep();
-  bgmTimer = setInterval(playBgmStep, pattern.tempo);
+  bgmTimer = setInterval(playBgmStep, pattern.interval);
 }
 
 function getActiveBgmTrack() {
-  if (state.running && !state.paused && !state.gameOver) {
-    return state.mode === 'endless' && state.stage >= 4 ? 'rush' : 'play';
-  }
+  if (state.running && !state.paused && !state.gameOver) return state.mode === 'endless' && state.stage >= 4 ? 'rush' : 'play';
   if (!state.gameOver && !state.arriving) return 'main';
   return null;
 }
 
 function refreshBgm() {
-  if (!soundEnabled) {
+  if (!soundEnabled || !audioUnlocked) {
     stopBgm();
     return;
   }
@@ -303,8 +300,9 @@ function toggleSound() {
   updateSoundButton();
   if (soundEnabled) {
     getAudioContext();
-    refreshBgm();
+    applyBgmVolume();
     playSound('rank');
+    refreshBgm();
   } else {
     stopBgm();
   }
@@ -369,13 +367,9 @@ function updateHUD() {
   timeText.textContent = formatTime(state.elapsed);
   hpText.textContent = `${Math.max(0, Math.round(state.hp))} / 100`;
   hpFill.style.width = `${Math.max(0, Math.min(100, state.hp))}%`;
-  stageText.textContent = state.mode === 'endless' && state.stage >= 4
-    ? `무한 ${4 + state.endlessLevel}단계`
-    : `${state.stage}단계`;
+  stageText.textContent = state.mode === 'endless' && state.stage >= 4 ? `무한 ${4 + state.endlessLevel}단계` : `${state.stage}단계`;
   stageBanner.textContent = cfg.name;
-  const progress = state.mode === 'endless'
-    ? ((state.elapsed % 60) / 60) * 100
-    : Math.min(100, (state.elapsed / GAME_TIME) * 100);
+  const progress = state.mode === 'endless' ? ((state.elapsed % 60) / 60) * 100 : Math.min(100, (state.elapsed / GAME_TIME) * 100);
   progressFill.style.width = `${progress}%`;
   stage.dataset.theme = cfg.theme;
 }
@@ -439,10 +433,8 @@ function resetGame() {
 
 function startGame() {
   getAudioContext();
-  refreshBgm();
   state.playerName = sanitizeName(nicknameInput ? nicknameInput.value : '햄찌');
-  updateSoundButton();
-resetGame();
+  resetGame();
   state.playerName = sanitizeName(nicknameInput ? nicknameInput.value : state.playerName);
   startButton.disabled = true;
   if (nicknameInput) nicknameInput.disabled = true;
@@ -452,6 +444,7 @@ resetGame();
     ? `무한모드: 오래 버틸수록 등급이 올라갑니다. ${count}초 후 시작됩니다.`
     : `장애물은 피하고, 커피는 획득하세요. ${count}초 후 출근이 시작됩니다.`;
   startButton.textContent = '준비 중...';
+  refreshBgm();
 
   const countdown = setInterval(() => {
     count -= 1;
@@ -487,9 +480,7 @@ function jump() {
   playSound(state.jumpCount === 1 ? 'jump' : 'doubleJump');
   hamsterWrap.classList.add('jumping');
 
-  if (state.jumpCount === 2) {
-    addLog('더블점프! 햄찌가 공중에서 한 번 더 폴짝 뛰었습니다.');
-  }
+  if (state.jumpCount === 2) addLog('더블점프! 햄찌가 공중에서 한 번 더 폴짝 뛰었습니다.');
 }
 
 function pickWeightedType() {
@@ -512,10 +503,9 @@ function createObject(forcedType = null) {
   el.style.height = `${type.height}px`;
   obstacleLayer.appendChild(el);
 
-  const startX = stage.clientWidth + 80;
-  const object = {
+  state.objects.push({
     el,
-    x: startX,
+    x: stage.clientWidth + 80,
     y: 0,
     width: type.width,
     height: type.height,
@@ -525,14 +515,12 @@ function createObject(forcedType = null) {
     passed: false,
     collected: false,
     resolved: false,
-  };
-  state.objects.push(object);
+  });
 }
 
 function getHamsterBox() {
   const rect = hamsterWrap.getBoundingClientRect();
   const stageRect = stage.getBoundingClientRect();
-
   return {
     left: rect.left - stageRect.left + rect.width * 0.24,
     right: rect.left - stageRect.left + rect.width * 0.70,
@@ -545,20 +533,15 @@ function getObjectBox(object) {
   const rect = object.el.getBoundingClientRect();
   const stageRect = stage.getBoundingClientRect();
   const isItem = object.kind === 'item';
-  const isTall = object.className === 'tall-barrier' || object.el.classList.contains('tall-barrier');
-
+  const isTall = object.el.classList.contains('tall-barrier');
   let xPadding = isItem ? 0.18 : 0.28;
   let yTopPadding = isItem ? 0.18 : 0.34;
   let yBottomPadding = isItem ? 0.12 : 0.20;
-
   if (isTall) {
-    // 높은 장애물은 시각적으로도 크고 실제 충돌 박스도 세로로 길게 잡아
-    // 더블점프가 의미 있게 작동하도록 분리했습니다.
     xPadding = 0.22;
     yTopPadding = 0.10;
     yBottomPadding = 0.08;
   }
-
   return {
     left: rect.left - stageRect.left + rect.width * xPadding,
     right: rect.left - stageRect.left + rect.width * (1 - xPadding),
@@ -581,7 +564,6 @@ function resolveObstacle(object) {
 
 function takeDamage(object) {
   if (state.invincibleTimer > 0) return;
-
   const cfg = getStageConfig();
   state.hp -= cfg.damage;
   state.hitCount += 1;
@@ -592,12 +574,8 @@ function takeDamage(object) {
   void hitFlash.offsetWidth;
   hitFlash.classList.add('show');
   addLog(`${object ? object.name : '장애물'} 충돌! ${state.stage}단계 피해 HP -${cfg.damage}`);
-
   setTimeout(() => hamsterWrap.classList.remove('hit'), 450);
-
-  if (state.hp <= 0) {
-    endGame(false);
-  }
+  if (state.hp <= 0) endGame(false);
 }
 
 function collectCoffee(object) {
@@ -626,12 +604,9 @@ function updateStage() {
   const nextStage = state.mode === 'endless'
     ? (state.elapsed < 30 ? 1 : state.elapsed < 60 ? 2 : state.elapsed < 120 ? 3 : 4)
     : (state.elapsed < 60 ? 1 : state.elapsed < 120 ? 2 : 3);
-  const nextEndlessLevel = state.mode === 'endless' && nextStage >= 4
-    ? Math.max(0, Math.floor(Math.max(0, state.elapsed - 120) / 45))
-    : 0;
+  const nextEndlessLevel = state.mode === 'endless' && nextStage >= 4 ? Math.max(0, Math.floor(Math.max(0, state.elapsed - 120) / 45)) : 0;
   const stageChanged = nextStage !== state.stage;
   const endlessLevelChanged = nextEndlessLevel !== state.endlessLevel;
-
   if (!stageChanged && !endlessLevelChanged) return;
 
   state.stage = nextStage;
@@ -641,20 +616,14 @@ function updateStage() {
   const cfg = getStageConfig();
 
   if (state.mode === 'endless' && state.stage >= 4) {
-    if (stageChanged) {
-      addLog('4단계 진입! 야근 러시가 시작되어 장애물과 피로가 더 강해집니다.');
-    } else if (endlessLevelChanged && state.endlessLevel > 0) {
-      addLog(`무한 ${4 + state.endlessLevel}단계! 출근길이 더 빨라졌습니다.`);
-    }
+    if (stageChanged) addLog('4단계 진입! 야근 러시가 시작되어 장애물과 피로가 더 강해집니다.');
+    else if (endlessLevelChanged && state.endlessLevel > 0) addLog(`무한 ${4 + state.endlessLevel}단계! 출근길이 더 빨라졌습니다.`);
     refreshBgm();
     return;
   }
 
-  if (state.stage === 3) {
-    addLog('3단계 진입! 햄찌컴퍼니가 가까워져 누적 피로가 5초마다 증가합니다.');
-  } else {
-    addLog(`${state.stage}단계 진입! 장애물이 더 빨라지고 피로가 ${cfg.fatigueInterval}초마다 쌓입니다.`);
-  }
+  if (state.stage === 3) addLog('3단계 진입! 햄찌컴퍼니가 가까워져 누적 피로가 5초마다 증가합니다.');
+  else addLog(`${state.stage}단계 진입! 장애물이 더 빨라지고 피로가 ${cfg.fatigueInterval}초마다 쌓입니다.`);
   refreshBgm();
 }
 
@@ -662,28 +631,23 @@ function updatePhysics(dt) {
   const gravity = 0.6;
   state.velocityY -= gravity * dt * 60;
   state.y += state.velocityY * dt * 60;
-
   if (state.y <= GROUND_Y) {
     state.y = GROUND_Y;
     state.velocityY = 0;
     state.jumpCount = 0;
     hamsterWrap.classList.remove('jumping');
   }
-
   hamsterWrap.style.transform = `translateY(${-state.y}px)`;
 }
 
 function updateObjects(dt) {
   const cfg = getStageConfig();
   state.spawnTimer += dt * 1000;
-
   if (state.spawnTimer >= state.nextSpawnDelay) {
     state.spawnTimer = 0;
     state.nextSpawnDelay = getRandomSpawnDelay(cfg);
-
     const coffeeType = getTypeByClass('coffee-item');
     const shouldForceCoffee = coffeeType && state.elapsed * 1000 >= state.nextCoffeeAt;
-
     if (shouldForceCoffee) {
       createObject(coffeeType);
       state.nextCoffeeAt = getNextCoffeeTime();
@@ -695,7 +659,6 @@ function updateObjects(dt) {
   state.objects.forEach((object) => {
     object.x -= cfg.speed * dt * 60;
     object.el.style.transform = `translateX(${object.x}px)`;
-
     if (!object.passed && object.x < 80) {
       object.passed = true;
       if (object.kind === 'obstacle') state.passed += 1;
@@ -706,12 +669,8 @@ function updateObjects(dt) {
   state.objects.forEach((object) => {
     if (object.collected || object.resolved) return;
     if (!isColliding(hamsterBox, getObjectBox(object))) return;
-
-    if (object.kind === 'item') {
-      collectCoffee(object);
-    } else {
-      resolveObstacle(object);
-    }
+    if (object.kind === 'item') collectCoffee(object);
+    else resolveObstacle(object);
   });
 
   state.objects = state.objects.filter((object) => {
@@ -734,7 +693,6 @@ function getRank(success) {
     if (seconds >= 60) return 'D';
     return 'F';
   }
-
   if (!success || state.hp <= 0) return 'F';
   const hp = Math.round(state.hp);
   if (hp >= 95) return 'S';
@@ -745,25 +703,14 @@ function getRank(success) {
 }
 
 function readBestRecords() {
-  try {
-    return JSON.parse(localStorage.getItem(BEST_RECORD_KEY)) || {};
-  } catch (error) {
-    return {};
-  }
-}
-
-function readBestRecord(mode = state.mode) {
-  const records = readBestRecords();
-  return records[mode] || null;
+  try { return JSON.parse(localStorage.getItem(BEST_RECORD_KEY)) || {}; } catch { return {}; }
 }
 
 function readPlayLogs() {
   try {
     const logs = JSON.parse(localStorage.getItem(PLAY_LOG_KEY));
     return Array.isArray(logs) ? logs : [];
-  } catch (error) {
-    return [];
-  }
+  } catch { return []; }
 }
 
 function savePlayLog(record) {
@@ -782,13 +729,11 @@ function saveBestRecord(record) {
     (rankScore[record.rank] === rankScore[best.rank] && isEndless && record.time > best.time) ||
     (rankScore[record.rank] === rankScore[best.rank] && !isEndless && record.hp > best.hp) ||
     (rankScore[record.rank] === rankScore[best.rank] && record.hp === best.hp && record.passed > best.passed);
-
   if (isBetter) {
     records[record.mode] = record;
     localStorage.setItem(BEST_RECORD_KEY, JSON.stringify(records));
     return { best: record, updated: true };
   }
-
   return { best, updated: false };
 }
 
@@ -816,7 +761,6 @@ function renderPlayLogs() {
 function loop(timestamp) {
   if (!state.running || state.paused || state.gameOver) return;
   if (!state.lastTime) state.lastTime = timestamp;
-
   const dt = Math.min(0.033, (timestamp - state.lastTime) / 1000);
   state.lastTime = timestamp;
 
@@ -832,7 +776,6 @@ function loop(timestamp) {
     startArrivalSequence();
     return;
   }
-
   requestAnimationFrame(loop);
 }
 
@@ -879,8 +822,7 @@ function startArrivalSequence() {
 }
 
 function goHome() {
-  updateSoundButton();
-resetGame();
+  resetGame();
 }
 
 function pauseGoHome() {
@@ -891,8 +833,7 @@ function pauseGoHome() {
   state.paused = false;
   state.gameOver = false;
   state.arriving = false;
-  updateSoundButton();
-resetGame();
+  resetGame();
   addLog('메인 화면으로 돌아왔습니다. 새 출근을 준비하세요.');
 }
 
@@ -927,14 +868,9 @@ function endGame(success, reason = 'hp0') {
   const record = saveBestRecord(finalRecord);
   renderPlayLogs();
 
-  if (!success) {
-    playSound('fail');
-  } else {
-    playSound(reason === 'arrival' ? 'rank' : 'rank');
-  }
-  if (record.updated) {
-    setTimeout(() => playSound('newRecord'), success ? 260 : 180);
-  }
+  if (!success) playSound('fail');
+  else playSound('rank');
+  if (record.updated) setTimeout(() => playSound('newRecord'), success ? 260 : 180);
 
   const bestText = record.best
     ? `최고 기록: ${record.best.name} / ${MODE_LABELS[record.best.mode]} / ${record.best.rank}등급 / ${record.best.mode === 'endless' ? `생존 ${formatClock(record.best.time)}` : `HP ${record.best.hp}`} / 회피 ${record.best.passed}개`
@@ -960,7 +896,6 @@ function quitEndlessRun() {
 
 function togglePause() {
   if (!state.running || state.gameOver) return;
-
   state.paused = !state.paused;
   if (state.paused) {
     state.lastTime = 0;
@@ -987,10 +922,8 @@ function handleInput(event) {
     togglePause();
     return;
   }
-
   if (event.type === 'keydown' && event.code !== 'Space') return;
   if (event.type === 'keydown') event.preventDefault();
-
   if (!state.running || state.paused || state.gameOver) return;
   jump();
 }
@@ -1005,6 +938,7 @@ if (quitButton) quitButton.addEventListener('click', quitEndlessRun);
 if (normalModeButton) normalModeButton.addEventListener('click', () => setMode('normal'));
 if (endlessModeButton) endlessModeButton.addEventListener('click', () => setMode('endless'));
 if (soundButton) soundButton.addEventListener('click', toggleSound);
+if (bgmVolumeSlider) bgmVolumeSlider.addEventListener('input', (event) => setBgmVolume(event.target.value));
 document.addEventListener('keydown', handleInput);
 stage.addEventListener('pointerdown', (event) => {
   if (event.target.tagName === 'BUTTON' || event.target.tagName === 'INPUT') return;
@@ -1013,4 +947,5 @@ stage.addEventListener('pointerdown', (event) => {
 });
 
 updateSoundButton();
+updateBgmVolumeUI();
 resetGame();
