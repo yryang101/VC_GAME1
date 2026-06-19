@@ -17,11 +17,13 @@ const objectTypes = [
   { kind: 'obstacle', label: '🚗', className: 'car', width: 60, height: 42, weight: 24, name: '자동차' },
   { kind: 'obstacle', label: '🛴', className: 'kickboard', width: 46, height: 42, weight: 24, name: '킥보드' },
   { kind: 'obstacle', label: '💼', className: 'bag', width: 44, height: 38, weight: 16, name: '서류가방' },
-  { kind: 'item', label: '☕', className: 'coffee-item', width: 42, height: 42, weight: 8, name: '커피' },
+  { kind: 'obstacle', label: '🚧', className: 'tall-barrier', width: 48, height: 82, weight: 10, name: '공사 표지판' },
+  { kind: 'item', label: '☕', className: 'coffee-item', width: 42, height: 42, weight: 5, name: '커피' },
 ];
 
 const state = {
   running: false,
+  paused: false,
   gameOver: false,
   hp: MAX_HP,
   elapsed: 0,
@@ -33,6 +35,7 @@ const state = {
   objects: [],
   lastTime: 0,
   spawnTimer: 0,
+  nextSpawnDelay: 1600,
   invincibleTimer: 0,
   fatigueTimer: 0,
   passed: 0,
@@ -53,6 +56,9 @@ const hitFlash = document.getElementById('hitFlash');
 const centerMessage = document.getElementById('centerMessage');
 const startButton = document.getElementById('startButton');
 const nicknameInput = document.getElementById('nicknameInput');
+const pauseButton = document.getElementById('pauseButton');
+const pauseMessage = document.getElementById('pauseMessage');
+const resumeButton = document.getElementById('resumeButton');
 const resultPanel = document.getElementById('resultPanel');
 const endingTitle = document.getElementById('endingTitle');
 const endingText = document.getElementById('endingText');
@@ -63,6 +69,12 @@ const stage = document.getElementById('stage');
 
 function getStageConfig() {
   return stageInfo[state.stage - 1];
+}
+
+function getRandomSpawnDelay(cfg) {
+  const minDelay = Math.max(1050, cfg.spawn * 0.78);
+  const maxDelay = cfg.spawn * 1.42;
+  return minDelay + Math.random() * (maxDelay - minDelay);
 }
 
 function formatTime(seconds) {
@@ -97,6 +109,7 @@ function updateHUD() {
 
 function resetGame() {
   state.running = false;
+  state.paused = false;
   state.gameOver = false;
   state.hp = MAX_HP;
   state.elapsed = 0;
@@ -107,6 +120,7 @@ function resetGame() {
   state.objects.forEach(o => o.el.remove());
   state.objects = [];
   state.spawnTimer = 0;
+  state.nextSpawnDelay = getRandomSpawnDelay(stageInfo[0]);
   state.invincibleTimer = 0;
   state.fatigueTimer = 0;
   state.passed = 0;
@@ -121,6 +135,8 @@ function resetGame() {
   centerMessage.querySelector('p').textContent = '스페이스/클릭/터치로 점프하세요. 공중에서 한 번 더 누르면 더블점프가 됩니다.';
   startButton.textContent = '출근 시작';
   startButton.disabled = false;
+  if (pauseButton) pauseButton.classList.add('hidden');
+  if (pauseMessage) pauseMessage.classList.add('hidden');
   if (nicknameInput) nicknameInput.disabled = false;
   logList.innerHTML = '<li>햄찌가 휴대폰과 사원증을 챙겼습니다.</li>';
   renderPlayLogs();
@@ -151,13 +167,16 @@ function startGame() {
 
 function beginRun() {
   state.running = true;
+  state.paused = false;
+  state.lastTime = 0;
   centerMessage.classList.add('hidden');
+  if (pauseButton) pauseButton.classList.remove('hidden');
   addLog(`${state.playerName}님의 출근 시작! 신호등, 자동차, 킥보드는 점프로 피하세요.`);
   requestAnimationFrame(loop);
 }
 
 function jump() {
-  if (!state.running || state.gameOver) return;
+  if (!state.running || state.paused || state.gameOver) return;
   if (state.jumpCount >= state.maxJumps) return;
 
   state.velocityY = state.jumpCount === 0 ? 13.8 : 12.4;
@@ -185,6 +204,8 @@ function createObject() {
   el.className = `obstacle ${type.className} ${type.kind}`;
   el.textContent = type.label;
   el.setAttribute('aria-label', type.name);
+  el.style.width = `${type.width}px`;
+  el.style.height = `${type.height}px`;
   obstacleLayer.appendChild(el);
 
   const startX = stage.clientWidth + 80;
@@ -219,9 +240,9 @@ function getObjectBox(object) {
   const rect = object.el.getBoundingClientRect();
   const stageRect = stage.getBoundingClientRect();
   const isItem = object.kind === 'item';
-  const xPadding = isItem ? 0.18 : 0.20;
-  const yTopPadding = isItem ? 0.18 : 0.18;
-  const yBottomPadding = isItem ? 0.12 : 0.10;
+  const xPadding = isItem ? 0.18 : 0.26;
+  const yTopPadding = isItem ? 0.18 : 0.24;
+  const yBottomPadding = isItem ? 0.12 : 0.16;
 
   return {
     left: rect.left - stageRect.left + rect.width * xPadding,
@@ -289,6 +310,7 @@ function updateStage() {
   if (nextStage !== state.stage) {
     state.stage = nextStage;
     state.fatigueTimer = 0;
+    state.nextSpawnDelay = getRandomSpawnDelay(getStageConfig());
     const cfg = getStageConfig();
     if (state.stage === 3) {
       addLog('3단계 진입! 햄찌컴퍼니가 가까워져 누적 피로가 5초마다 증가합니다.');
@@ -317,8 +339,9 @@ function updateObjects(dt) {
   const cfg = getStageConfig();
   state.spawnTimer += dt * 1000;
 
-  if (state.spawnTimer >= cfg.spawn) {
+  if (state.spawnTimer >= state.nextSpawnDelay) {
     state.spawnTimer = 0;
+    state.nextSpawnDelay = getRandomSpawnDelay(cfg);
     createObject();
   }
 
@@ -425,7 +448,7 @@ function renderPlayLogs() {
 }
 
 function loop(timestamp) {
-  if (!state.running || state.gameOver) return;
+  if (!state.running || state.paused || state.gameOver) return;
   if (!state.lastTime) state.lastTime = timestamp;
 
   const dt = Math.min(0.033, (timestamp - state.lastTime) / 1000);
@@ -452,6 +475,8 @@ function endGame(success) {
   state.gameOver = true;
   state.running = false;
   if (nicknameInput) nicknameInput.disabled = false;
+  if (pauseButton) pauseButton.classList.add('hidden');
+  if (pauseMessage) pauseMessage.classList.add('hidden');
   updateHUD();
   resultPanel.classList.remove('hidden');
 
@@ -485,19 +510,45 @@ function endGame(success) {
   }
 }
 
+function togglePause() {
+  if (!state.running || state.gameOver) return;
+
+  state.paused = !state.paused;
+  if (state.paused) {
+    state.lastTime = 0;
+    if (pauseMessage) pauseMessage.classList.remove('hidden');
+    if (pauseButton) pauseButton.textContent = '계속하기';
+    addLog('일시정지! 햄찌가 잠깐 숨을 고릅니다.');
+  } else {
+    if (pauseMessage) pauseMessage.classList.add('hidden');
+    if (pauseButton) pauseButton.textContent = '일시정지';
+    addLog('다시 출근 시작!');
+    requestAnimationFrame(loop);
+  }
+}
+
 function handleInput(event) {
+  if (event.type === 'keydown' && event.code === 'KeyP') {
+    event.preventDefault();
+    togglePause();
+    return;
+  }
+
   if (event.type === 'keydown' && event.code !== 'Space') return;
   if (event.type === 'keydown') event.preventDefault();
 
-  if (!state.running || state.gameOver) return;
+  if (!state.running || state.paused || state.gameOver) return;
   jump();
 }
 
 startButton.addEventListener('click', startGame);
 restartButton.addEventListener('click', startGame);
+if (pauseButton) pauseButton.addEventListener('click', togglePause);
+if (resumeButton) resumeButton.addEventListener('click', togglePause);
 document.addEventListener('keydown', handleInput);
 stage.addEventListener('pointerdown', (event) => {
   if (event.target.tagName === 'BUTTON' || event.target.tagName === 'INPUT') return;
+  if (state.paused) return;
   jump();
 });
 

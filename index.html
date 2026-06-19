@@ -56,12 +56,18 @@
           <div class="coffee-cup"></div>
         </div>
       </div>
+      <button id="pauseButton" class="pause-button hidden" type="button" aria-label="일시정지">일시정지</button>
       <div class="hit-flash" id="hitFlash"></div>
+      <div class="pause-message hidden" id="pauseMessage">
+        <h2>PAUSE</h2>
+        <p>잠깐 쉬는 중입니다. 계속하려면 버튼 또는 P키를 눌러주세요.</p>
+        <button id="resumeButton" type="button">계속 출근하기</button>
+      </div>
       <div class="center-message" id="centerMessage">
         <h2>햄찌 출근 준비 완료!</h2>
         <p>스페이스 / 클릭 / 모바일 터치로 점프하세요. 공중에서 한 번 더 누르면 더블점프가 됩니다.</p>
         <label class="nickname-field" for="nicknameInput">닉네임</label>
-        <input id="nicknameInput" class="nickname-input" type="text" maxlength="10" placeholder="예: 예리" />
+        <input id="nicknameInput" class="nickname-input" type="text" maxlength="10" placeholder="예: 햄찌" />
         <button id="startButton" type="button">출근 시작</button>
       </div>
     </section>
