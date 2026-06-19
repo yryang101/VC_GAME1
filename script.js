@@ -1,65 +1,28 @@
-const GAME_DURATION = 180;
-const STAGE_LENGTH = 60;
-const JUMP_TIME = 760;
-const PLAYER_X = 128;
-const HIT_RANGE = 36;
-const DAMAGE_BY_STAGE = [3, 5, 10];
+const GAME_TIME = 180;
+const MAX_HP = 100;
+const GROUND_Y = 0;
 
-const stageConfigs = [
-  {
-    name: '1단계 · 동네 골목',
-    speed: 230,
-    spawnMin: 1.15,
-    spawnMax: 1.75,
-    log: '1단계 시작! 동네 골목은 아직 여유롭습니다.',
-    obstacles: [
-      { icon: '☕', label: '엎질러진 커피', className: 'low', width: 54 },
-      { icon: '📦', label: '택배 상자', className: 'low', width: 58 },
-      { icon: '👜', label: '두고 간 가방', className: 'low', width: 56 },
-    ],
-  },
-  {
-    name: '2단계 · 버스 정류장',
-    speed: 285,
-    spawnMin: 0.9,
-    spawnMax: 1.35,
-    log: '2단계 진입! 출근길이 조금 붐비기 시작합니다.',
-    obstacles: [
-      { icon: '☕', label: '엎질러진 커피', className: 'low', width: 54 },
-      { icon: '🚧', label: '공사 표지판', className: 'tall', width: 52 },
-      { icon: '🐱', label: '출근길 고양이', className: 'tall', width: 50 },
-      { icon: '📦', label: '택배 상자', className: 'low', width: 58 },
-    ],
-  },
-  {
-    name: '3단계 · 회사 앞 횡단보도',
-    speed: 340,
-    spawnMin: 0.68,
-    spawnMax: 1.08,
-    log: '3단계 진입! 회사가 보입니다. 마지막 집중!',
-    obstacles: [
-      { icon: '🚧', label: '공사 표지판', className: 'tall fast', width: 52 },
-      { icon: '🐱', label: '급한 고양이', className: 'tall fast', width: 50 },
-      { icon: '🛴', label: '킥보드', className: 'low fast', width: 62 },
-      { icon: '☂️', label: '날아온 우산', className: 'low fast', width: 58 },
-    ],
-  },
+const stageInfo = [
+  { stage: 1, name: '1단계 · 동네 골목', damage: 3, speed: 4.2, spawn: 1500 },
+  { stage: 2, name: '2단계 · 지하철 입구', damage: 5, speed: 5.3, spawn: 1250 },
+  { stage: 3, name: '3단계 · 회사 앞 횡단보도', damage: 10, speed: 6.4, spawn: 1050 },
 ];
 
 const state = {
-  phase: 'ready',
-  timeLeft: GAME_DURATION,
-  hp: 100,
+  running: false,
+  gameOver: false,
+  hp: MAX_HP,
   elapsed: 0,
-  currentStage: 0,
-  speed: stageConfigs[0].speed,
-  spawnTimer: 0,
-  nextSpawn: 1.4,
+  stage: 1,
+  y: GROUND_Y,
+  velocityY: 0,
+  jumpCount: 0,
+  maxJumps: 2,
   obstacles: [],
-  isJumping: false,
-  invincible: false,
-  lastTimestamp: 0,
-  animationId: null,
+  lastTime: 0,
+  spawnTimer: 0,
+  invincibleTimer: 0,
+  passed: 0,
 };
 
 const timeText = document.getElementById('timeText');
@@ -67,237 +30,280 @@ const hpText = document.getElementById('hpText');
 const hpFill = document.getElementById('hpFill');
 const stageText = document.getElementById('stageText');
 const progressFill = document.getElementById('progressFill');
-const stage = document.getElementById('stage');
 const stageBanner = document.getElementById('stageBanner');
-const obstacleLayer = document.getElementById('obstacleLayer');
 const hamsterWrap = document.getElementById('hamsterWrap');
+const obstacleLayer = document.getElementById('obstacleLayer');
 const hitFlash = document.getElementById('hitFlash');
 const centerMessage = document.getElementById('centerMessage');
 const startButton = document.getElementById('startButton');
-const logList = document.getElementById('logList');
 const resultPanel = document.getElementById('resultPanel');
 const endingTitle = document.getElementById('endingTitle');
 const endingText = document.getElementById('endingText');
 const restartButton = document.getElementById('restartButton');
+const logList = document.getElementById('logList');
+const stage = document.getElementById('stage');
 
-function formatTime(seconds) {
-  const safe = Math.max(0, Math.ceil(seconds));
-  const minutes = Math.floor(safe / 60).toString().padStart(2, '0');
-  const remain = (safe % 60).toString().padStart(2, '0');
-  return `${minutes}:${remain}`;
+function getStageConfig() {
+  return stageInfo[state.stage - 1];
 }
 
-function updateHud() {
-  const progress = Math.min(100, Math.floor((state.elapsed / GAME_DURATION) * 100));
-  timeText.textContent = formatTime(state.timeLeft);
-  hpText.textContent = `${Math.max(0, Math.ceil(state.hp))} / 100`;
-  hpFill.style.width = `${Math.max(0, Math.min(100, state.hp))}%`;
-  stageText.textContent = `${state.currentStage + 1}단계`;
-  stageBanner.textContent = stageConfigs[state.currentStage].name;
-  progressFill.style.width = `${progress}%`;
+function formatTime(seconds) {
+  const remain = Math.max(0, Math.ceil(GAME_TIME - seconds));
+  const mm = String(Math.floor(remain / 60)).padStart(2, '0');
+  const ss = String(remain % 60).padStart(2, '0');
+  return `${mm}:${ss}`;
 }
 
 function addLog(text) {
   const li = document.createElement('li');
   li.textContent = text;
   logList.prepend(li);
-  while (logList.children.length > 5) logList.removeChild(logList.lastChild);
+  while (logList.children.length > 5) logList.lastChild.remove();
 }
 
-function randomBetween(min, max) {
-  return min + Math.random() * (max - min);
-}
-
-function setNextSpawn() {
-  const config = stageConfigs[state.currentStage];
-  state.nextSpawn = randomBetween(config.spawnMin, config.spawnMax);
+function updateHUD() {
+  const cfg = getStageConfig();
+  timeText.textContent = formatTime(state.elapsed);
+  hpText.textContent = `${Math.max(0, Math.round(state.hp))} / 100`;
+  hpFill.style.width = `${Math.max(0, state.hp)}%`;
+  stageText.textContent = `${state.stage}단계`;
+  stageBanner.textContent = cfg.name;
+  progressFill.style.width = `${Math.min(100, (state.elapsed / GAME_TIME) * 100)}%`;
 }
 
 function resetGame() {
-  cancelAnimationFrame(state.animationId);
-  state.phase = 'ready';
-  state.timeLeft = GAME_DURATION;
-  state.hp = 100;
+  state.running = false;
+  state.gameOver = false;
+  state.hp = MAX_HP;
   state.elapsed = 0;
-  state.currentStage = 0;
-  state.speed = stageConfigs[0].speed;
-  state.spawnTimer = 0;
+  state.stage = 1;
+  state.y = GROUND_Y;
+  state.velocityY = 0;
+  state.jumpCount = 0;
+  state.obstacles.forEach(o => o.el.remove());
   state.obstacles = [];
-  state.isJumping = false;
-  state.invincible = false;
-  state.lastTimestamp = 0;
-  obstacleLayer.innerHTML = '';
-  hamsterWrap.classList.remove('jump', 'hit');
+  state.spawnTimer = 0;
+  state.invincibleTimer = 0;
+  state.passed = 0;
+  state.lastTime = 0;
+  hamsterWrap.style.transform = 'translateY(0px)';
+  hamsterWrap.classList.remove('hit', 'jumping');
   resultPanel.classList.add('hidden');
   centerMessage.classList.remove('hidden');
   centerMessage.querySelector('h2').textContent = '햄찌 출근 준비 완료!';
-  centerMessage.querySelector('p').textContent = '장애물이 오면 스페이스/클릭/터치로 점프하세요. HP 100을 지키면 성공!';
+  centerMessage.querySelector('p').textContent = '스페이스/클릭/터치로 점프하세요. 공중에서 한 번 더 누르면 더블점프가 됩니다.';
   startButton.textContent = '출근 시작';
   logList.innerHTML = '<li>햄찌가 커피와 휴대폰을 챙겼습니다.</li>';
-  setNextSpawn();
-  updateHud();
+  updateHUD();
 }
 
 function startGame() {
-  if (state.phase === 'playing') return;
-  if (state.phase === 'ended') resetGame();
-  state.phase = 'playing';
-  state.lastTimestamp = performance.now();
+  resetGame();
+  state.running = true;
   centerMessage.classList.add('hidden');
-  addLog('출근 시작! 3분 동안 장애물을 피하세요.');
-  addLog(stageConfigs[0].log);
-  state.animationId = requestAnimationFrame(gameLoop);
+  addLog('출근 시작! 장애물은 점프와 더블점프로 피하세요.');
+  requestAnimationFrame(loop);
 }
 
 function jump() {
-  if (state.phase !== 'playing' || state.isJumping) return;
-  state.isJumping = true;
-  hamsterWrap.classList.remove('jump');
-  void hamsterWrap.offsetWidth;
-  hamsterWrap.classList.add('jump');
-  setTimeout(() => {
-    state.isJumping = false;
-    hamsterWrap.classList.remove('jump');
-  }, JUMP_TIME);
+  if (!state.running || state.gameOver) return;
+  if (state.jumpCount >= state.maxJumps) return;
+
+  // 첫 점프는 안정적으로 길게, 더블점프는 가로 회피 시간을 벌어주는 보정용입니다.
+  state.velocityY = state.jumpCount === 0 ? 15.8 : 13.2;
+  state.jumpCount += 1;
+  hamsterWrap.classList.add('jumping');
+
+  if (state.jumpCount === 2) {
+    addLog('더블점프! 햄찌가 공중에서 한 번 더 폴짝 뛰었습니다.');
+  }
 }
 
-function getStageIndex() {
-  return Math.min(2, Math.floor(state.elapsed / STAGE_LENGTH));
-}
+function createObstacle() {
+  const types = [
+    { label: '☕', className: 'coffee', width: 46, height: 46 },
+    { label: '💼', className: 'bag', width: 50, height: 42 },
+    { label: '📱', className: 'phone-obstacle', width: 42, height: 50 },
+    { label: '🧀', className: 'cheese', width: 48, height: 40 },
+  ];
 
-function checkStageUp() {
-  const nextStage = getStageIndex();
-  if (nextStage === state.currentStage) return;
-  state.currentStage = nextStage;
-  state.spawnTimer = 0;
-  setNextSpawn();
-  addLog(stageConfigs[state.currentStage].log);
-  updateHud();
-}
+  const type = types[Math.floor(Math.random() * types.length)];
+  const el = document.createElement('div');
+  el.className = `obstacle ${type.className}`;
+  el.textContent = type.label;
+  obstacleLayer.appendChild(el);
 
-function spawnObstacle() {
-  const config = stageConfigs[state.currentStage];
-  const type = config.obstacles[Math.floor(Math.random() * config.obstacles.length)];
-  const element = document.createElement('div');
-  element.className = `obstacle ${type.className}`;
-  element.textContent = type.icon;
-  obstacleLayer.appendChild(element);
-
-  state.obstacles.push({
-    x: stage.clientWidth + 80,
+  const startX = stage.clientWidth + 80;
+  const obstacle = {
+    el,
+    x: startX,
+    y: 0,
     width: type.width,
-    label: type.label,
-    element,
-    hit: false,
-  });
+    height: type.height,
+    passed: false,
+  };
+  state.obstacles.push(obstacle);
 }
 
-function removeObstacle(obstacle) {
-  obstacle.element.remove();
-  state.obstacles = state.obstacles.filter((item) => item !== obstacle);
+function getHamsterBox() {
+  const rect = hamsterWrap.getBoundingClientRect();
+  const stageRect = stage.getBoundingClientRect();
+
+  // 실제 캐릭터보다 훨씬 작은 안전 판정. 귀/컵/휴대폰 장식은 맞아도 피격되지 않게 제외합니다.
+  return {
+    left: rect.left - stageRect.left + rect.width * 0.34,
+    right: rect.left - stageRect.left + rect.width * 0.66,
+    top: rect.top - stageRect.top + rect.height * 0.42,
+    bottom: rect.top - stageRect.top + rect.height * 0.83,
+  };
 }
 
-function hitObstacle(obstacle) {
-  if (state.invincible || obstacle.hit) return;
-  obstacle.hit = true;
-  const damage = DAMAGE_BY_STAGE[state.currentStage];
-  state.hp = Math.max(0, state.hp - damage);
-  state.invincible = true;
-  updateHud();
+function getObstacleBox(obstacle) {
+  const rect = obstacle.el.getBoundingClientRect();
+  const stageRect = stage.getBoundingClientRect();
 
-  addLog(`${obstacle.label}에 부딪혔어요. HP -${damage}`);
-  hamsterWrap.classList.remove('hit');
-  void hamsterWrap.offsetWidth;
+  // 장애물도 중앙부만 판정해서 점프 타이밍 게임의 억울함을 줄입니다.
+  return {
+    left: rect.left - stageRect.left + rect.width * 0.30,
+    right: rect.left - stageRect.left + rect.width * 0.70,
+    top: rect.top - stageRect.top + rect.height * 0.30,
+    bottom: rect.top - stageRect.top + rect.height * 0.86,
+  };
+}
+
+function isColliding(a, b) {
+  return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+}
+
+function takeDamage() {
+  if (state.invincibleTimer > 0) return;
+
+  const cfg = getStageConfig();
+  state.hp -= cfg.damage;
+  state.invincibleTimer = 900;
   hamsterWrap.classList.add('hit');
-  hitFlash.classList.remove('on');
+  hitFlash.classList.remove('show');
   void hitFlash.offsetWidth;
-  hitFlash.classList.add('on');
+  hitFlash.classList.add('show');
+  addLog(`${state.stage}단계 장애물 충돌! HP -${cfg.damage}`);
 
-  setTimeout(() => {
-    state.invincible = false;
-    hamsterWrap.classList.remove('hit');
-  }, 850);
-  if (state.hp <= 0) endGame(false);
+  setTimeout(() => hamsterWrap.classList.remove('hit'), 450);
+
+  if (state.hp <= 0) {
+    endGame(false);
+  }
 }
 
-function updateObstacles(delta) {
-  [...state.obstacles].forEach((obstacle) => {
-    obstacle.x -= state.speed * delta;
-    obstacle.element.style.transform = `translateX(${obstacle.x}px)`;
-
-    const isNearPlayer = obstacle.x < PLAYER_X + HIT_RANGE && obstacle.x + obstacle.width > PLAYER_X - HIT_RANGE;
-    if (isNearPlayer && !state.isJumping) hitObstacle(obstacle);
-    if (obstacle.x < -120) removeObstacle(obstacle);
-  });
+function updateStage() {
+  const nextStage = state.elapsed < 60 ? 1 : state.elapsed < 120 ? 2 : 3;
+  if (nextStage !== state.stage) {
+    state.stage = nextStage;
+    addLog(`${state.stage}단계 진입! 장애물이 더 빨라집니다.`);
+  }
 }
 
-function gameLoop(timestamp) {
-  if (state.phase !== 'playing') return;
+function updatePhysics(dt) {
+  const gravity = 0.72;
+  state.velocityY -= gravity * dt * 60;
+  state.y += state.velocityY * dt * 60;
 
-  const delta = Math.min((timestamp - state.lastTimestamp) / 1000, 0.05);
-  state.lastTimestamp = timestamp;
-  state.elapsed += delta;
-  state.timeLeft = GAME_DURATION - state.elapsed;
-  checkStageUp();
-
-  const config = stageConfigs[state.currentStage];
-  state.speed = config.speed + (state.elapsed % STAGE_LENGTH) * 0.55;
-  state.spawnTimer += delta;
-
-  if (state.spawnTimer >= state.nextSpawn) {
-    spawnObstacle();
-    state.spawnTimer = 0;
-    setNextSpawn();
+  if (state.y <= GROUND_Y) {
+    state.y = GROUND_Y;
+    state.velocityY = 0;
+    state.jumpCount = 0;
+    hamsterWrap.classList.remove('jumping');
   }
 
-  updateObstacles(delta);
-  updateHud();
+  hamsterWrap.style.transform = `translateY(${-state.y}px)`;
+}
 
-  if (state.elapsed >= GAME_DURATION) {
+function updateObstacles(dt) {
+  const cfg = getStageConfig();
+  state.spawnTimer += dt * 1000;
+
+  if (state.spawnTimer >= cfg.spawn) {
+    state.spawnTimer = 0;
+    createObstacle();
+  }
+
+  state.obstacles.forEach((obstacle) => {
+    obstacle.x -= cfg.speed * dt * 60;
+    obstacle.el.style.transform = `translateX(${obstacle.x}px)`;
+
+    if (!obstacle.passed && obstacle.x < 80) {
+      obstacle.passed = true;
+      state.passed += 1;
+    }
+  });
+
+  const hamsterBox = getHamsterBox();
+  state.obstacles.forEach((obstacle) => {
+    if (isColliding(hamsterBox, getObstacleBox(obstacle))) takeDamage();
+  });
+
+  state.obstacles = state.obstacles.filter((obstacle) => {
+    if (obstacle.x < -120) {
+      obstacle.el.remove();
+      return false;
+    }
+    return true;
+  });
+}
+
+function loop(timestamp) {
+  if (!state.running || state.gameOver) return;
+  if (!state.lastTime) state.lastTime = timestamp;
+
+  const dt = Math.min(0.033, (timestamp - state.lastTime) / 1000);
+  state.lastTime = timestamp;
+
+  state.elapsed += dt;
+  state.invincibleTimer = Math.max(0, state.invincibleTimer - dt * 1000);
+  updateStage();
+  updatePhysics(dt);
+  updateObstacles(dt);
+  updateHUD();
+
+  if (state.elapsed >= GAME_TIME) {
     endGame(true);
     return;
   }
 
-  state.animationId = requestAnimationFrame(gameLoop);
+  requestAnimationFrame(loop);
 }
 
-function endGame(isWin) {
-  if (state.phase === 'ended') return;
-  state.phase = 'ended';
-  cancelAnimationFrame(state.animationId);
+function endGame(success) {
+  state.gameOver = true;
+  state.running = false;
+  updateHUD();
+  resultPanel.classList.remove('hidden');
 
-  if (isWin) {
-    endingTitle.textContent = '정시 출근 성공!';
-    endingText.textContent = '햄찌가 3단계 출근길을 모두 통과했습니다. 오늘도 월급과 커피를 지켰어요.';
-    addLog('회사 도착! 햄찌의 출근 미션 성공입니다.');
+  if (success) {
+    endingTitle.textContent = '출근 성공!';
+    endingText.textContent = `햄찌가 3분 출근길을 버텼습니다. 남은 HP는 ${Math.max(0, Math.round(state.hp))}, 피한 장애물은 ${state.passed}개입니다.`;
   } else {
     endingTitle.textContent = '출근 실패!';
-    endingText.textContent = 'HP가 0이 되어 햄찌가 잠깐 쉬어가기로 했습니다. 다시 도전해보세요.';
-    addLog('햄찌가 지쳐버렸습니다. 다음 출근은 더 안정적으로!');
+    endingText.textContent = `햄찌가 출근길에서 녹초가 됐습니다. ${state.stage}단계 피해량이 높으니 더블점프 타이밍을 활용해보세요.`;
   }
-
-  resultPanel.classList.remove('hidden');
 }
 
-function handleAction(event) {
-  const clickedButton = event.target.closest('button');
-  if (clickedButton) return;
+function handleInput(event) {
+  if (event.type === 'keydown' && event.code !== 'Space') return;
+  if (event.type === 'keydown') event.preventDefault();
 
-  if (state.phase === 'ready') {
-    startGame();
+  if (!state.running && !state.gameOver && centerMessage && !centerMessage.classList.contains('hidden')) {
     return;
   }
+
   jump();
 }
 
 startButton.addEventListener('click', startGame);
-restartButton.addEventListener('click', resetGame);
-stage.addEventListener('pointerdown', handleAction);
-window.addEventListener('keydown', (event) => {
-  if (event.code !== 'Space') return;
-  event.preventDefault();
-  if (state.phase === 'ready') startGame();
-  else jump();
+restartButton.addEventListener('click', startGame);
+document.addEventListener('keydown', handleInput);
+stage.addEventListener('pointerdown', (event) => {
+  if (event.target.tagName === 'BUTTON') return;
+  jump();
 });
 
 resetGame();
