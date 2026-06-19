@@ -1,8 +1,9 @@
 const GAME_DURATION = 180;
 const STAGE_LENGTH = 60;
-const JUMP_TIME = 580;
+const JUMP_TIME = 760;
 const PLAYER_X = 128;
-const HIT_RANGE = 48;
+const HIT_RANGE = 36;
+const DAMAGE_BY_STAGE = [3, 5, 10];
 
 const stageConfigs = [
   {
@@ -48,7 +49,7 @@ const stageConfigs = [
 const state = {
   phase: 'ready',
   timeLeft: GAME_DURATION,
-  life: 3,
+  hp: 100,
   elapsed: 0,
   currentStage: 0,
   speed: stageConfigs[0].speed,
@@ -62,7 +63,8 @@ const state = {
 };
 
 const timeText = document.getElementById('timeText');
-const lifeText = document.getElementById('lifeText');
+const hpText = document.getElementById('hpText');
+const hpFill = document.getElementById('hpFill');
 const stageText = document.getElementById('stageText');
 const progressFill = document.getElementById('progressFill');
 const stage = document.getElementById('stage');
@@ -88,7 +90,8 @@ function formatTime(seconds) {
 function updateHud() {
   const progress = Math.min(100, Math.floor((state.elapsed / GAME_DURATION) * 100));
   timeText.textContent = formatTime(state.timeLeft);
-  lifeText.textContent = '❤'.repeat(state.life) || '0';
+  hpText.textContent = `${Math.max(0, Math.ceil(state.hp))} / 100`;
+  hpFill.style.width = `${Math.max(0, Math.min(100, state.hp))}%`;
   stageText.textContent = `${state.currentStage + 1}단계`;
   stageBanner.textContent = stageConfigs[state.currentStage].name;
   progressFill.style.width = `${progress}%`;
@@ -114,7 +117,7 @@ function resetGame() {
   cancelAnimationFrame(state.animationId);
   state.phase = 'ready';
   state.timeLeft = GAME_DURATION;
-  state.life = 3;
+  state.hp = 100;
   state.elapsed = 0;
   state.currentStage = 0;
   state.speed = stageConfigs[0].speed;
@@ -128,7 +131,7 @@ function resetGame() {
   resultPanel.classList.add('hidden');
   centerMessage.classList.remove('hidden');
   centerMessage.querySelector('h2').textContent = '햄찌 출근 준비 완료!';
-  centerMessage.querySelector('p').textContent = '장애물이 오면 한 번 눌러 점프하세요.';
+  centerMessage.querySelector('p').textContent = '장애물이 오면 스페이스/클릭/터치로 점프하세요. HP 100을 지키면 성공!';
   startButton.textContent = '출근 시작';
   logList.innerHTML = '<li>햄찌가 커피와 휴대폰을 챙겼습니다.</li>';
   setNextSpawn();
@@ -197,11 +200,12 @@ function removeObstacle(obstacle) {
 function hitObstacle(obstacle) {
   if (state.invincible || obstacle.hit) return;
   obstacle.hit = true;
-  state.life -= 1;
+  const damage = DAMAGE_BY_STAGE[state.currentStage];
+  state.hp = Math.max(0, state.hp - damage);
   state.invincible = true;
   updateHud();
 
-  addLog(`${obstacle.label}에 부딪혔어요. 컨디션 -1`);
+  addLog(`${obstacle.label}에 부딪혔어요. HP -${damage}`);
   hamsterWrap.classList.remove('hit');
   void hamsterWrap.offsetWidth;
   hamsterWrap.classList.add('hit');
@@ -209,8 +213,11 @@ function hitObstacle(obstacle) {
   void hitFlash.offsetWidth;
   hitFlash.classList.add('on');
 
-  setTimeout(() => { state.invincible = false; }, 850);
-  if (state.life <= 0) endGame(false);
+  setTimeout(() => {
+    state.invincible = false;
+    hamsterWrap.classList.remove('hit');
+  }, 850);
+  if (state.hp <= 0) endGame(false);
 }
 
 function updateObstacles(delta) {
@@ -265,7 +272,7 @@ function endGame(isWin) {
     addLog('회사 도착! 햄찌의 출근 미션 성공입니다.');
   } else {
     endingTitle.textContent = '출근 실패!';
-    endingText.textContent = '컨디션이 모두 떨어져 햄찌가 잠깐 쉬어가기로 했습니다. 다시 도전해보세요.';
+    endingText.textContent = 'HP가 0이 되어 햄찌가 잠깐 쉬어가기로 했습니다. 다시 도전해보세요.';
     addLog('햄찌가 지쳐버렸습니다. 다음 출근은 더 안정적으로!');
   }
 
