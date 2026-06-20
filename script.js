@@ -11,10 +11,10 @@ const BGM_VOLUME_KEY = 'hamzziBgmVolumeV20';
 const MODE_LABELS = { normal: '기본모드', endless: '무한모드' };
 
 const stageInfo = [
-  { stage: 1, name: '1단계 · 집 앞 골목', damage: 3, speed: 6.9, spawn: 1850, fatigueInterval: 10, theme: 'home' },
-  { stage: 2, name: '2단계 · 버스 정류장', damage: 5, speed: 8.1, spawn: 1600, fatigueInterval: 6, theme: 'bus' },
-  { stage: 3, name: '3단계 · 햄찌컴퍼니 앞', damage: 10, speed: 9.3, spawn: 1380, fatigueInterval: 4, theme: 'office' },
-  { stage: 4, name: '4단계 · 야근 러시', damage: 12, speed: 10.5, spawn: 1150, fatigueInterval: 3, theme: 'rush' },
+  { stage: 1, name: '1단계 · 집 앞 골목', damage: 3, speed: 6.9, spawn: 1450, fatigueInterval: 10, theme: 'home' },
+  { stage: 2, name: '2단계 · 버스 정류장', damage: 5, speed: 8.1, spawn: 1250, fatigueInterval: 6, theme: 'bus' },
+  { stage: 3, name: '3단계 · 햄찌컴퍼니 앞', damage: 10, speed: 9.3, spawn: 1080, fatigueInterval: 4, theme: 'office' },
+  { stage: 4, name: '4단계 · 야근 러시', damage: 12, speed: 10.5, spawn: 950, fatigueInterval: 3, theme: 'rush' },
 ];
 
 const objectTypes = [
@@ -317,15 +317,15 @@ function getStageConfig() {
     ...base,
     name: level > 0 ? `무한 ${4 + level}단계 · 야근 출근길` : base.name,
     damage: Math.min(20, base.damage + Math.floor(level / 2)),
-    speed: Math.min(8.2, base.speed + level * 0.28),
-    spawn: Math.max(820, base.spawn - level * 75),
-    fatigueInterval: Math.max(3, base.fatigueInterval - Math.floor(level / 2)),
+    speed: Math.min(12.5, base.speed + level * 0.35),
+    spawn: Math.max(760, base.spawn - level * 70),
+    fatigueInterval: Math.max(2, base.fatigueInterval - Math.floor(level / 2)),
   };
 }
 
 function getRandomSpawnDelay(cfg) {
-  const minDelay = Math.max(1050, cfg.spawn * 0.78);
-  const maxDelay = cfg.spawn * 1.42;
+  const minDelay = Math.max(850, cfg.spawn * 0.65);
+  const maxDelay = cfg.spawn * 1.25;
   return minDelay + Math.random() * (maxDelay - minDelay);
 }
 
@@ -501,12 +501,19 @@ function createObject(forcedType = null) {
   el.setAttribute('aria-label', type.name);
   el.style.width = `${type.width}px`;
   el.style.height = `${type.height}px`;
+
+  const baseBottom = 58;
+  const isAirCoffee = type.kind === 'item' && Math.random() < 0.3;
+  const yOffset = isAirCoffee ? 96 : 0;
+  el.style.bottom = `${baseBottom + yOffset}px`;
+  if (isAirCoffee) el.classList.add('air-item');
+
   obstacleLayer.appendChild(el);
 
   state.objects.push({
     el,
     x: stage.clientWidth + 80,
-    y: 0,
+    y: yOffset,
     width: type.width,
     height: type.height,
     kind: type.kind,

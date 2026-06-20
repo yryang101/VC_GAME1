@@ -399,3 +399,8 @@ button:hover { transform: translate(2px, 2px); box-shadow: 2px 2px 0 var(--shado
 @media (max-width: 520px) {
   .home-button { margin-left: 0; margin-top: 10px; }
 }
+
+/* v25: air coffee reward cue */
+.obstacle.item.air-item {
+  box-shadow: 0 0 0 5px var(--cream), 5px 5px 0 var(--shadow), 0 0 12px rgba(255, 241, 201, .65);
+}
