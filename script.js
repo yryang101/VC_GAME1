@@ -11,10 +11,10 @@ const BGM_VOLUME_KEY = 'hamzziBgmVolumeV20';
 const MODE_LABELS = { normal: '기본모드', endless: '무한모드' };
 
 const stageInfo = [
-  { stage: 1, name: '1단계 · 집 앞 골목', damage: 3, speed: 3.7, spawn: 1850, fatigueInterval: 10, theme: 'home' },
-  { stage: 2, name: '2단계 · 버스 정류장', damage: 5, speed: 4.6, spawn: 1600, fatigueInterval: 8, theme: 'bus' },
-  { stage: 3, name: '3단계 · 햄찌컴퍼니 앞', damage: 10, speed: 5.4, spawn: 1380, fatigueInterval: 5, theme: 'office' },
-  { stage: 4, name: '4단계 · 야근 러시', damage: 12, speed: 6.2, spawn: 1150, fatigueInterval: 4, theme: 'rush' },
+  { stage: 1, name: '1단계 · 집 앞 골목', damage: 3, speed: 5.5, spawn: 1850, fatigueInterval: 10, theme: 'home' },
+  { stage: 2, name: '2단계 · 버스 정류장', damage: 5, speed: 6.9, spawn: 1600, fatigueInterval: 8, theme: 'bus' },
+  { stage: 3, name: '3단계 · 햄찌컴퍼니 앞', damage: 10, speed: 8.1, spawn: 1380, fatigueInterval: 5, theme: 'office' },
+  { stage: 4, name: '4단계 · 야근 러시', damage: 12, speed: 9.4, spawn: 1150, fatigueInterval: 4, theme: 'rush' },
 ];
 
 const objectTypes = [
