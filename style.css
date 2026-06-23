@@ -404,3 +404,56 @@ button:hover { transform: translate(2px, 2px); box-shadow: 2px 2px 0 var(--shado
 .obstacle.item.air-item {
   box-shadow: 0 0 0 5px var(--cream), 5px 5px 0 var(--shadow), 0 0 12px rgba(255, 241, 201, .65);
 }
+
+/* v26: in-game Hamzzi PNG character update */
+.hamster-wrap {
+  width: 122px;
+  height: 122px;
+}
+
+.hamster {
+  left: 0;
+  bottom: -2px;
+  width: 122px;
+  height: 122px;
+  border: 0;
+  border-radius: 0;
+  background: url("assets/images/햄찌출근시키기_hamzzi.png") center bottom / contain no-repeat;
+  box-shadow: none;
+  image-rendering: auto;
+  filter: drop-shadow(5px 6px 0 var(--shadow));
+}
+
+.hamster .ear,
+.hamster .face,
+.hamster .shirt,
+.hamster .tie,
+.hamster .phone,
+.hamster .coffee-cup {
+  display: none;
+}
+
+.hamster-wrap.jumping .hamster {
+  animation: hamzziPngBounce .38s ease infinite;
+}
+
+.hamster-wrap.arriving .hamster {
+  animation: hamzziPngBounce .22s ease-in-out infinite;
+}
+
+@keyframes hamzziPngBounce {
+  50% { transform: scale(1.035, .965) rotate(-1deg); }
+}
+
+@media (max-width: 680px) {
+  .hamster-wrap {
+    width: 104px;
+    height: 104px;
+    left: 44px;
+  }
+
+  .hamster {
+    width: 104px;
+    height: 104px;
+  }
+}
