@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
@@ -8,7 +8,20 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <div class="app-splash" id="appSplash" aria-label="앱 로딩">
+    <div class="app-splash-card">
+      <img src="assets/images/햄찌출근시키기_hamzzi.png" alt="" />
+      <strong>햄찌 출근 준비 중...</strong>
+      <span>커피 챙기는 중...</span>
+    </div>
+  </div>
   <main class="game-shell">
+    <section class="mobile-hud" id="mobileHud" aria-label="모바일 게임 상태">
+      <div><span>HP</span><strong id="mobileHudHp">100 / 100</strong></div>
+      <div><span>TIME</span><strong id="mobileHudTime">03:00</strong></div>
+      <div><span>STAGE</span><strong id="mobileHudStage">1단계</strong></div>
+      <button id="mobileSettingsButton" class="mobile-settings-button" type="button" aria-label="설정">⚙</button>
+    </section>
     <section class="title-panel">
       <p class="eyebrow">PIXEL COMMUTE MINI GAME</p>
       <h1>햄찌 출근시키기</h1>
@@ -110,6 +123,35 @@
   <div class="rotate-notice" aria-hidden="true">
     <div class="rotate-notice-inner">가로 화면으로 돌려주세요</div>
   </div>
+  <div class="mobile-settings-overlay hidden" id="mobileSettingsOverlay" aria-hidden="true">
+    <div class="mobile-settings-panel" role="dialog" aria-modal="true" aria-labelledby="mobileSettingsTitle">
+      <div class="mobile-settings-head">
+        <h2 id="mobileSettingsTitle">설정</h2>
+        <button id="mobileSettingsCloseButton" type="button" aria-label="닫기">닫기</button>
+      </div>
+      <div class="mobile-settings-controls">
+        <button id="mobileSoundButton" type="button">사운드 ON/OFF</button>
+        <label for="mobileBgmVolumeSlider">
+          <span>BGM 볼륨</span>
+          <input id="mobileBgmVolumeSlider" type="range" min="0" max="100" value="35" />
+          <strong id="mobileBgmVolumeValue">35%</strong>
+        </label>
+      </div>
+      <div class="mobile-settings-grid">
+        <section>
+          <h3>플레이 기록</h3>
+          <ol id="mobileRecordList"></ol>
+        </section>
+        <section>
+          <h3>출근 로그</h3>
+          <ul id="mobileLogList"></ul>
+        </section>
+      </div>
+      <div class="mobile-settings-actions">
+        <button id="mobileHomeButton" type="button">메인 화면 이동</button>
+      </div>
+    </div>
+  </div>
   <script src="script.js"></script>
   <script>
     if ('serviceWorker' in navigator) {
@@ -120,3 +162,4 @@
   </script>
 </body>
 </html>
+

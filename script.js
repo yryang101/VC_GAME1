@@ -87,6 +87,19 @@ const bgmVolumeSlider = document.getElementById('bgmVolumeSlider');
 const bgmVolumeValue = document.getElementById('bgmVolumeValue');
 const mobileJumpButton = document.getElementById('mobileJumpButton');
 const touchAppMediaQuery = window.matchMedia('(hover: none) and (pointer: coarse)');
+const appSplash = document.getElementById('appSplash');
+const mobileHudHp = document.getElementById('mobileHudHp');
+const mobileHudTime = document.getElementById('mobileHudTime');
+const mobileHudStage = document.getElementById('mobileHudStage');
+const mobileSettingsButton = document.getElementById('mobileSettingsButton');
+const mobileSettingsOverlay = document.getElementById('mobileSettingsOverlay');
+const mobileSettingsCloseButton = document.getElementById('mobileSettingsCloseButton');
+const mobileSoundButton = document.getElementById('mobileSoundButton');
+const mobileBgmVolumeSlider = document.getElementById('mobileBgmVolumeSlider');
+const mobileBgmVolumeValue = document.getElementById('mobileBgmVolumeValue');
+const mobileRecordList = document.getElementById('mobileRecordList');
+const mobileLogList = document.getElementById('mobileLogList');
+const mobileHomeButton = document.getElementById('mobileHomeButton');
 
 let audioContext = null;
 let masterGain = null;
@@ -99,6 +112,7 @@ let bgmStep = 0;
 let bgmVolume = Number(localStorage.getItem(BGM_VOLUME_KEY) || 35);
 if (!Number.isFinite(bgmVolume)) bgmVolume = 35;
 bgmVolume = Math.max(0, Math.min(100, bgmVolume));
+let mobileSettingsPausedRun = false;
 
 function isMobileAppInputMode() {
   return touchAppMediaQuery.matches;
@@ -127,6 +141,10 @@ function updateSoundButton() {
   if (!soundButton) return;
   soundButton.textContent = soundEnabled ? '🔊 사운드 ON' : '🔇 사운드 OFF';
   soundButton.classList.toggle('muted', !soundEnabled);
+  if (mobileSoundButton) {
+    mobileSoundButton.textContent = soundEnabled ? '사운드 ON' : '사운드 OFF';
+    mobileSoundButton.classList.toggle('muted', !soundEnabled);
+  }
 }
 
 function updateBgmVolumeUI() {
@@ -134,6 +152,8 @@ function updateBgmVolumeUI() {
   bgmVolume = normalized;
   if (bgmVolumeSlider) bgmVolumeSlider.value = String(normalized);
   if (bgmVolumeValue) bgmVolumeValue.textContent = `${normalized}%`;
+  if (mobileBgmVolumeSlider) mobileBgmVolumeSlider.value = String(normalized);
+  if (mobileBgmVolumeValue) mobileBgmVolumeValue.textContent = `${normalized}%`;
 }
 
 function applyBgmVolume() {
@@ -365,6 +385,7 @@ function addLog(text) {
   li.textContent = text;
   logList.prepend(li);
   while (logList.children.length > 7) logList.lastChild.remove();
+  syncMobileSettingsLists();
 }
 
 function updateHUD() {
@@ -374,6 +395,9 @@ function updateHUD() {
   hpText.textContent = `${Math.max(0, Math.round(state.hp))} / 100`;
   hpFill.style.width = `${Math.max(0, Math.min(100, state.hp))}%`;
   stageText.textContent = state.mode === 'endless' && state.stage >= 4 ? `무한 ${4 + state.endlessLevel}단계` : `${state.stage}단계`;
+  if (mobileHudTime) mobileHudTime.textContent = timeText.textContent;
+  if (mobileHudHp) mobileHudHp.textContent = hpText.textContent;
+  if (mobileHudStage) mobileHudStage.textContent = stageText.textContent;
   stageBanner.textContent = cfg.name;
   const progress = state.mode === 'endless' ? ((state.elapsed % 60) / 60) * 100 : Math.min(100, (state.elapsed / GAME_TIME) * 100);
   progressFill.style.width = `${progress}%`;
@@ -433,6 +457,7 @@ function resetGame() {
   if (nicknameInput) nicknameInput.disabled = false;
   logList.innerHTML = '<li>햄찌가 휴대폰과 사원증을 챙겼습니다.</li>';
   renderPlayLogs();
+  syncMobileSettingsLists();
   setMode(state.mode);
   updateHUD();
   refreshBgm();
@@ -773,6 +798,44 @@ function renderPlayLogs() {
   )).join('');
 }
 
+function syncMobileSettingsLists() {
+  if (mobileRecordList && recordList) mobileRecordList.innerHTML = recordList.innerHTML;
+  if (mobileLogList && logList) mobileLogList.innerHTML = logList.innerHTML;
+}
+
+function openMobileSettings() {
+  if (!mobileSettingsOverlay) return;
+  syncMobileSettingsLists();
+  updateSoundButton();
+  updateBgmVolumeUI();
+  mobileSettingsPausedRun = Boolean(state.running && !state.paused && !state.gameOver);
+  if (mobileSettingsPausedRun) {
+    state.paused = true;
+    state.lastTime = 0;
+    stopBgm();
+  }
+  if (mobileJumpButton) mobileJumpButton.disabled = true;
+  document.body.classList.add('mobile-settings-open');
+  mobileSettingsOverlay.classList.remove('hidden');
+  mobileSettingsOverlay.setAttribute('aria-hidden', 'false');
+}
+
+function closeMobileSettings() {
+  if (!mobileSettingsOverlay) return;
+  mobileSettingsOverlay.classList.add('hidden');
+  mobileSettingsOverlay.setAttribute('aria-hidden', 'true');
+  document.body.classList.remove('mobile-settings-open');
+  if (mobileSettingsPausedRun && state.running && !state.gameOver) {
+    state.paused = false;
+    if (mobileJumpButton) mobileJumpButton.disabled = false;
+    refreshBgm();
+    requestAnimationFrame(loop);
+  } else if (mobileJumpButton) {
+    mobileJumpButton.disabled = !state.running || state.paused || state.gameOver || state.arriving;
+  }
+  mobileSettingsPausedRun = false;
+}
+
 function loop(timestamp) {
   if (!state.running || state.paused || state.gameOver) return;
   if (!state.lastTime) state.lastTime = timestamp;
@@ -884,6 +947,7 @@ function endGame(success, reason = 'hp0') {
   savePlayLog(finalRecord);
   const record = saveBestRecord(finalRecord);
   renderPlayLogs();
+  syncMobileSettingsLists();
 
   if (!success) playSound('fail');
   else playSound('rank');
@@ -919,6 +983,7 @@ function togglePause() {
     if (pauseMessage) pauseMessage.classList.remove('hidden');
     if (pauseHomeButton) pauseHomeButton.classList.remove('hidden');
     if (quitButton) quitButton.classList.toggle('hidden', state.mode !== 'endless');
+    if (mobileJumpButton) mobileJumpButton.disabled = true;
     if (pauseButton) pauseButton.textContent = '계속하기';
     stopBgm();
     addLog('일시정지! 햄찌가 잠깐 숨을 고릅니다.');
@@ -926,6 +991,7 @@ function togglePause() {
     if (pauseMessage) pauseMessage.classList.add('hidden');
     if (pauseHomeButton) pauseHomeButton.classList.add('hidden');
     if (quitButton) quitButton.classList.add('hidden');
+    if (mobileJumpButton) mobileJumpButton.disabled = false;
     if (pauseButton) pauseButton.textContent = '일시정지';
     addLog('다시 출근 시작!');
     refreshBgm();
@@ -956,6 +1022,22 @@ if (normalModeButton) normalModeButton.addEventListener('click', () => setMode('
 if (endlessModeButton) endlessModeButton.addEventListener('click', () => setMode('endless'));
 if (soundButton) soundButton.addEventListener('click', toggleSound);
 if (bgmVolumeSlider) bgmVolumeSlider.addEventListener('input', (event) => setBgmVolume(event.target.value));
+if (mobileSettingsButton) mobileSettingsButton.addEventListener('click', openMobileSettings);
+if (mobileSettingsCloseButton) mobileSettingsCloseButton.addEventListener('click', closeMobileSettings);
+if (mobileSettingsOverlay) {
+  mobileSettingsOverlay.addEventListener('pointerdown', (event) => {
+    if (event.target === mobileSettingsOverlay) closeMobileSettings();
+  });
+}
+if (mobileSoundButton) mobileSoundButton.addEventListener('click', toggleSound);
+if (mobileBgmVolumeSlider) mobileBgmVolumeSlider.addEventListener('input', (event) => setBgmVolume(event.target.value));
+if (mobileHomeButton) {
+  mobileHomeButton.addEventListener('click', () => {
+    closeMobileSettings();
+    if (state.running && !state.gameOver) pauseGoHome();
+    else goHome();
+  });
+}
 document.addEventListener('keydown', handleInput);
 if (mobileJumpButton) {
   mobileJumpButton.addEventListener('pointerdown', (event) => {
@@ -974,3 +1056,9 @@ stage.addEventListener('pointerdown', (event) => {
 updateSoundButton();
 updateBgmVolumeUI();
 resetGame();
+syncMobileSettingsLists();
+if (appSplash) {
+  window.setTimeout(() => {
+    appSplash.classList.add('hidden');
+  }, 1400);
+}

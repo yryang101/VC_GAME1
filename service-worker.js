@@ -1,4 +1,4 @@
-const CACHE_NAME = 'hamzzi-commute-v27';
+const CACHE_NAME = 'hamzzi-commute-v28';
 
 const CORE_ASSETS = [
   './',
