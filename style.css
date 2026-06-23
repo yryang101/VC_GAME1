@@ -457,3 +457,230 @@ button:hover { transform: translate(2px, 2px); box-shadow: 2px 2px 0 var(--shado
     height: 104px;
   }
 }
+
+/* v27: mobile app landscape optimization */
+.mobile-jump-button,
+.rotate-notice {
+  display: none;
+}
+
+@media (hover: none) and (pointer: coarse) and (orientation: landscape) {
+  html,
+  body {
+    min-height: 100dvh;
+    overflow: hidden;
+    overscroll-behavior: none;
+    touch-action: none;
+  }
+
+  body {
+    display: grid;
+    place-items: center;
+    padding: max(6px, env(safe-area-inset-top, 0px)) max(8px, env(safe-area-inset-right, 0px)) max(6px, env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px));
+  }
+
+  .game-shell {
+    width: min(calc(100dvw - 16px), calc((100dvh - 16px) * 16 / 9));
+    aspect-ratio: 16 / 9;
+    max-height: calc(100dvh - 16px);
+    margin: 0 auto;
+    display: grid;
+    grid-template-rows: auto auto 1fr;
+    border-width: 4px;
+    outline-width: 4px;
+    box-shadow: 0 8px 22px rgba(77, 48, 44, .24);
+  }
+
+  .title-panel {
+    position: relative;
+    padding: 7px 12px 6px;
+  }
+
+  .title-panel h1 {
+    margin-bottom: 0;
+    font-size: clamp(20px, 4.2dvh, 34px);
+  }
+
+  .eyebrow {
+    margin-bottom: 3px;
+    font-size: 8px;
+  }
+
+  .subtitle,
+  .guide-panel,
+  .records-panel,
+  .log-panel {
+    display: none;
+  }
+
+  .audio-controls {
+    position: absolute;
+    right: 8px;
+    top: 6px;
+    margin: 0;
+    transform: scale(.74);
+    transform-origin: top right;
+    z-index: 14;
+  }
+
+  .status-panel {
+    padding: 6px 8px;
+    gap: 7px;
+  }
+
+  .status-card {
+    padding: 5px 7px;
+    border-width: 3px;
+    box-shadow: 3px 3px 0 var(--shadow);
+  }
+
+  .status-card span {
+    font-size: clamp(10px, 2.2dvh, 13px);
+  }
+
+  .status-card strong {
+    font-size: clamp(16px, 4dvh, 24px);
+  }
+
+  .hp-track {
+    height: 10px;
+    margin-top: 4px;
+    border-width: 2px;
+  }
+
+  .stage {
+    height: auto;
+    min-height: 0;
+    touch-action: none;
+  }
+
+  .progress-track {
+    top: 9px;
+    height: 12px;
+  }
+
+  .stage-banner {
+    top: 32px;
+    left: 14px;
+    padding: 4px 8px;
+    font-size: clamp(13px, 3dvh, 16px);
+  }
+
+  .pause-button {
+    top: 32px;
+    right: 10px;
+    padding: 6px 9px;
+    font-size: 14px;
+  }
+
+  .center-message,
+  .pause-message {
+    padding: 12px 16px;
+    gap: 6px;
+  }
+
+  .center-message h2,
+  .pause-message h2 {
+    font-size: clamp(21px, 5.2dvh, 32px);
+  }
+
+  .center-message p,
+  .pause-message p,
+  .result-card p {
+    font-size: clamp(14px, 3dvh, 18px);
+    line-height: 1.35;
+  }
+
+  .nickname-field {
+    font-size: 15px;
+  }
+
+  .nickname-input {
+    padding: 7px 10px;
+    font-size: 16px;
+  }
+
+  button {
+    padding: 9px 14px;
+  }
+
+  .result-card {
+    width: min(540px, calc(100% - 28px));
+    padding: 18px;
+  }
+
+  .result-card h2 {
+    font-size: clamp(26px, 6dvh, 40px);
+  }
+
+  .mobile-jump-button {
+    position: absolute;
+    right: max(16px, env(safe-area-inset-right, 0px));
+    bottom: max(14px, env(safe-area-inset-bottom, 0px));
+    z-index: 16;
+    display: grid;
+    place-items: center;
+    width: clamp(78px, 15dvh, 118px);
+    aspect-ratio: 1;
+    padding: 0;
+    border-width: 5px;
+    border-radius: 999px;
+    background: radial-gradient(circle at 34% 28%, #fff9ef, #fff1c9 52%, #d99355 100%);
+    color: var(--brown-dark);
+    font-size: clamp(16px, 3.4dvh, 24px);
+    font-weight: 900;
+    line-height: 1;
+    box-shadow: 0 7px 0 rgba(77, 48, 44, .42), 0 15px 22px rgba(77, 48, 44, .2);
+    touch-action: none;
+  }
+
+  .mobile-jump-button:active {
+    transform: translateY(5px);
+    box-shadow: 0 2px 0 rgba(77, 48, 44, .42), 0 8px 14px rgba(77, 48, 44, .18);
+  }
+
+  .mobile-jump-button:disabled {
+    opacity: .45;
+  }
+}
+
+@media (hover: none) and (pointer: coarse) and (orientation: landscape) and (max-height: 430px) {
+  .hamster-wrap {
+    width: 96px;
+    height: 96px;
+  }
+
+  .hamster {
+    width: 96px;
+    height: 96px;
+  }
+
+  .pixel-office {
+    transform: scale(.72);
+    transform-origin: bottom right;
+  }
+}
+
+@media (hover: none) and (pointer: coarse) and (orientation: portrait) and (max-width: 820px) {
+  .rotate-notice {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    background: rgba(77, 48, 44, .96);
+    color: var(--cream);
+    text-align: center;
+    font-size: 22px;
+    line-height: 1.45;
+  }
+
+  .rotate-notice-inner {
+    width: min(320px, 100%);
+    padding: 22px;
+    border: 4px solid rgba(255, 255, 255, .38);
+    background: rgba(255, 255, 255, .08);
+    box-shadow: 6px 6px 0 rgba(0, 0, 0, .18);
+  }
+}

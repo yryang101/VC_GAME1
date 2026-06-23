@@ -85,6 +85,8 @@ const pixelOffice = document.querySelector('.pixel-office');
 const soundButton = document.getElementById('soundButton');
 const bgmVolumeSlider = document.getElementById('bgmVolumeSlider');
 const bgmVolumeValue = document.getElementById('bgmVolumeValue');
+const mobileJumpButton = document.getElementById('mobileJumpButton');
+const touchAppMediaQuery = window.matchMedia('(hover: none) and (pointer: coarse)');
 
 let audioContext = null;
 let masterGain = null;
@@ -97,6 +99,10 @@ let bgmStep = 0;
 let bgmVolume = Number(localStorage.getItem(BGM_VOLUME_KEY) || 35);
 if (!Number.isFinite(bgmVolume)) bgmVolume = 35;
 bgmVolume = Math.max(0, Math.min(100, bgmVolume));
+
+function isMobileAppInputMode() {
+  return touchAppMediaQuery.matches;
+}
 
 function getAudioContext() {
   const AudioContextClass = window.AudioContext || window.webkitAudioContext;
@@ -420,6 +426,7 @@ function resetGame() {
   startButton.textContent = state.mode === 'endless' ? '무한 출근 시작' : '출근 시작';
   startButton.disabled = false;
   if (pauseButton) pauseButton.classList.add('hidden');
+  if (mobileJumpButton) mobileJumpButton.disabled = true;
   if (pauseMessage) pauseMessage.classList.add('hidden');
   if (pauseHomeButton) pauseHomeButton.classList.add('hidden');
   if (quitButton) quitButton.classList.add('hidden');
@@ -465,6 +472,7 @@ function beginRun() {
   state.lastTime = 0;
   centerMessage.classList.add('hidden');
   if (pauseButton) pauseButton.classList.remove('hidden');
+  if (mobileJumpButton) mobileJumpButton.disabled = false;
   addLog(`${state.playerName}님의 ${MODE_LABELS[state.mode]} 시작! 신호등, 자동차, 킥보드는 점프로 피하세요.`);
   addLog('공사 표지판은 높아서 더블점프 타이밍이 중요합니다.');
   startBgm('play');
@@ -799,6 +807,7 @@ function startArrivalSequence() {
   state.jumpCount = 0;
   updateHUD();
   if (pauseButton) pauseButton.classList.add('hidden');
+  if (mobileJumpButton) mobileJumpButton.disabled = true;
   if (pauseMessage) pauseMessage.classList.add('hidden');
   if (pauseHomeButton) pauseHomeButton.classList.add('hidden');
   hamsterWrap.classList.remove('hit', 'jumping');
@@ -852,6 +861,7 @@ function endGame(success, reason = 'hp0') {
   state.arriving = false;
   if (nicknameInput) nicknameInput.disabled = false;
   if (pauseButton) pauseButton.classList.add('hidden');
+  if (mobileJumpButton) mobileJumpButton.disabled = true;
   if (pauseMessage) pauseMessage.classList.add('hidden');
   if (pauseHomeButton) pauseHomeButton.classList.add('hidden');
   if (quitButton) quitButton.classList.add('hidden');
@@ -947,8 +957,16 @@ if (endlessModeButton) endlessModeButton.addEventListener('click', () => setMode
 if (soundButton) soundButton.addEventListener('click', toggleSound);
 if (bgmVolumeSlider) bgmVolumeSlider.addEventListener('input', (event) => setBgmVolume(event.target.value));
 document.addEventListener('keydown', handleInput);
+if (mobileJumpButton) {
+  mobileJumpButton.addEventListener('pointerdown', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    jump();
+  });
+}
 stage.addEventListener('pointerdown', (event) => {
   if (event.target.tagName === 'BUTTON' || event.target.tagName === 'INPUT') return;
+  if (isMobileAppInputMode()) return;
   if (state.paused) return;
   jump();
 });

@@ -66,6 +66,7 @@
         </div>
       </div>
       <button id="pauseButton" class="pause-button hidden" type="button" aria-label="일시정지">일시정지</button>
+      <button id="mobileJumpButton" class="mobile-jump-button" type="button" aria-label="점프" disabled>JUMP</button>
       <div class="hit-flash" id="hitFlash"></div>
       <div class="pause-message hidden" id="pauseMessage">
         <h2>PAUSE</h2>
@@ -106,6 +107,9 @@
       </div>
     </section>
   </main>
+  <div class="rotate-notice" aria-hidden="true">
+    <div class="rotate-notice-inner">가로 화면으로 돌려주세요</div>
+  </div>
   <script src="script.js"></script>
   <script>
     if ('serviceWorker' in navigator) {
