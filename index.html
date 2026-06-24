@@ -20,6 +20,7 @@
       <div><span>HP</span><strong id="mobileHudHp">100 / 100</strong></div>
       <div><span>TIME</span><strong id="mobileHudTime">03:00</strong></div>
       <div><span>STAGE</span><strong id="mobileHudStage">1단계</strong></div>
+      <button id="mobileGuideButton" class="mobile-guide-button" type="button" aria-label="게임 가이드">?</button>
       <button id="mobileSettingsButton" class="mobile-settings-button" type="button" aria-label="설정">⚙</button>
     </section>
     <section class="title-panel">
@@ -150,6 +151,29 @@
       <div class="mobile-settings-actions">
         <button id="mobileHomeButton" type="button">메인 화면 이동</button>
       </div>
+    </div>
+  </div>
+  <div class="mobile-guide-overlay hidden" id="mobileGuideOverlay" aria-hidden="true">
+    <div class="mobile-guide-panel" role="dialog" aria-modal="true" aria-labelledby="mobileGuideTitle">
+      <div class="mobile-guide-head">
+        <h2 id="mobileGuideTitle">게임 가이드</h2>
+        <button id="mobileGuideCloseButton" type="button" aria-label="닫기">닫기</button>
+      </div>
+      <div class="mobile-guide-content">
+        <section>
+          <h3>🐹 목표</h3>
+          <p>지각은 절대 안 돼!<br />장애물을 피해 햄찌컴퍼니에 도착하세요.</p>
+        </section>
+        <section>
+          <h3>☕ 생존 팁</h3>
+          <p>커피를 먹으면 HP가 회복됩니다.<br />후반부로 갈수록 피로가 빨리 쌓입니다.</p>
+        </section>
+        <section>
+          <h3>🎮 조작</h3>
+          <p>모바일 앱: JUMP 버튼으로 점프<br />공중에서 한 번 더 누르면 더블점프<br />PC 웹: 스페이스 / 클릭으로 점프</p>
+        </section>
+      </div>
+      <button id="mobileGuideConfirmButton" class="mobile-guide-confirm" type="button">출근 준비하기</button>
     </div>
   </div>
   <script src="script.js"></script>

@@ -8,6 +8,7 @@ const COFFEE_MAX_INTERVAL = 34000;
 const PLAY_LOG_KEY = 'hamzziPlayLogsV19';
 const BEST_RECORD_KEY = 'hamzziBestRecordsV19';
 const BGM_VOLUME_KEY = 'hamzziBgmVolumeV20';
+const GUIDE_SEEN_KEY = 'hamzziGuideSeenV29';
 const MODE_LABELS = { normal: '기본모드', endless: '무한모드' };
 
 const stageInfo = [
@@ -91,15 +92,20 @@ const appSplash = document.getElementById('appSplash');
 const mobileHudHp = document.getElementById('mobileHudHp');
 const mobileHudTime = document.getElementById('mobileHudTime');
 const mobileHudStage = document.getElementById('mobileHudStage');
+const mobileGuideButton = document.getElementById('mobileGuideButton');
 const mobileSettingsButton = document.getElementById('mobileSettingsButton');
 const mobileSettingsOverlay = document.getElementById('mobileSettingsOverlay');
 const mobileSettingsCloseButton = document.getElementById('mobileSettingsCloseButton');
+const mobileGuideOverlay = document.getElementById('mobileGuideOverlay');
+const mobileGuideCloseButton = document.getElementById('mobileGuideCloseButton');
+const mobileGuideConfirmButton = document.getElementById('mobileGuideConfirmButton');
 const mobileSoundButton = document.getElementById('mobileSoundButton');
 const mobileBgmVolumeSlider = document.getElementById('mobileBgmVolumeSlider');
 const mobileBgmVolumeValue = document.getElementById('mobileBgmVolumeValue');
 const mobileRecordList = document.getElementById('mobileRecordList');
 const mobileLogList = document.getElementById('mobileLogList');
 const mobileHomeButton = document.getElementById('mobileHomeButton');
+const landscapeMediaQuery = window.matchMedia('(orientation: landscape)');
 
 let audioContext = null;
 let masterGain = null;
@@ -113,9 +119,15 @@ let bgmVolume = Number(localStorage.getItem(BGM_VOLUME_KEY) || 35);
 if (!Number.isFinite(bgmVolume)) bgmVolume = 35;
 bgmVolume = Math.max(0, Math.min(100, bgmVolume));
 let mobileSettingsPausedRun = false;
+let mobileGuidePausedRun = false;
+let splashFinished = false;
 
 function isMobileAppInputMode() {
   return touchAppMediaQuery.matches;
+}
+
+function isMobileLandscapeMode() {
+  return isMobileAppInputMode() && landscapeMediaQuery.matches;
 }
 
 function getAudioContext() {
@@ -836,6 +848,53 @@ function closeMobileSettings() {
   mobileSettingsPausedRun = false;
 }
 
+function hasSeenMobileGuide() {
+  return localStorage.getItem(GUIDE_SEEN_KEY) === 'true';
+}
+
+function setMobileGuideSeen() {
+  localStorage.setItem(GUIDE_SEEN_KEY, 'true');
+}
+
+function openMobileGuide({ markSeen = false } = {}) {
+  if (!mobileGuideOverlay) return;
+  if (markSeen) setMobileGuideSeen();
+  mobileGuidePausedRun = Boolean(state.running && !state.paused && !state.gameOver);
+  if (mobileGuidePausedRun) {
+    state.paused = true;
+    state.lastTime = 0;
+    stopBgm();
+  }
+  if (mobileJumpButton) mobileJumpButton.disabled = true;
+  document.body.classList.add('mobile-guide-open');
+  mobileGuideOverlay.classList.remove('hidden');
+  mobileGuideOverlay.setAttribute('aria-hidden', 'false');
+}
+
+function closeMobileGuide({ markSeen = true } = {}) {
+  if (!mobileGuideOverlay) return;
+  if (markSeen) setMobileGuideSeen();
+  mobileGuideOverlay.classList.add('hidden');
+  mobileGuideOverlay.setAttribute('aria-hidden', 'true');
+  document.body.classList.remove('mobile-guide-open');
+  if (mobileGuidePausedRun && state.running && !state.gameOver) {
+    state.paused = false;
+    if (mobileJumpButton) mobileJumpButton.disabled = false;
+    refreshBgm();
+    requestAnimationFrame(loop);
+  } else if (mobileJumpButton) {
+    mobileJumpButton.disabled = !state.running || state.paused || state.gameOver || state.arriving;
+  }
+  mobileGuidePausedRun = false;
+}
+
+function maybeShowMobileGuide() {
+  if (!splashFinished || !isMobileLandscapeMode() || hasSeenMobileGuide()) return;
+  if (mobileSettingsOverlay && !mobileSettingsOverlay.classList.contains('hidden')) return;
+  if (mobileGuideOverlay && !mobileGuideOverlay.classList.contains('hidden')) return;
+  openMobileGuide({ markSeen: false });
+}
+
 function loop(timestamp) {
   if (!state.running || state.paused || state.gameOver) return;
   if (!state.lastTime) state.lastTime = timestamp;
@@ -1038,6 +1097,14 @@ if (mobileHomeButton) {
     else goHome();
   });
 }
+if (mobileGuideButton) mobileGuideButton.addEventListener('click', () => openMobileGuide({ markSeen: false }));
+if (mobileGuideCloseButton) mobileGuideCloseButton.addEventListener('click', () => closeMobileGuide());
+if (mobileGuideConfirmButton) mobileGuideConfirmButton.addEventListener('click', () => closeMobileGuide());
+if (mobileGuideOverlay) {
+  mobileGuideOverlay.addEventListener('pointerdown', (event) => {
+    if (event.target === mobileGuideOverlay) closeMobileGuide();
+  });
+}
 document.addEventListener('keydown', handleInput);
 if (mobileJumpButton) {
   mobileJumpButton.addEventListener('pointerdown', (event) => {
@@ -1060,5 +1127,19 @@ syncMobileSettingsLists();
 if (appSplash) {
   window.setTimeout(() => {
     appSplash.classList.add('hidden');
+    splashFinished = true;
+    maybeShowMobileGuide();
   }, 1400);
+} else {
+  splashFinished = true;
+  maybeShowMobileGuide();
+}
+window.addEventListener('orientationchange', () => {
+  window.setTimeout(maybeShowMobileGuide, 250);
+});
+if (touchAppMediaQuery.addEventListener) {
+  touchAppMediaQuery.addEventListener('change', maybeShowMobileGuide);
+}
+if (landscapeMediaQuery.addEventListener) {
+  landscapeMediaQuery.addEventListener('change', maybeShowMobileGuide);
 }
