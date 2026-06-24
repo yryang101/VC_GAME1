@@ -665,7 +665,7 @@ button:hover { transform: translate(2px, 2px); box-shadow: 2px 2px 0 var(--shado
   .rotate-notice {
     position: fixed;
     inset: 0;
-    z-index: 1300;
+    z-index: 1200;
     display: grid;
     place-items: center;
     padding: 24px;
@@ -696,7 +696,7 @@ button:hover { transform: translate(2px, 2px); box-shadow: 2px 2px 0 var(--shado
 .app-splash {
   position: fixed;
   inset: 0;
-  z-index: 1200;
+  z-index: 1300;
   place-items: center;
   background: #f7eadf;
   color: var(--brown-dark);
@@ -704,6 +704,10 @@ button:hover { transform: translate(2px, 2px); box-shadow: 2px 2px 0 var(--shado
 
 .app-splash:not(.hidden) {
   display: grid;
+}
+
+body.splash-active .rotate-notice {
+  display: none !important;
 }
 
 .app-splash-card {

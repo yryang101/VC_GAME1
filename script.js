@@ -1127,10 +1127,12 @@ syncMobileSettingsLists();
 if (appSplash) {
   window.setTimeout(() => {
     appSplash.classList.add('hidden');
+    document.body.classList.remove('splash-active');
     splashFinished = true;
     maybeShowMobileGuide();
   }, 1400);
 } else {
+  document.body.classList.remove('splash-active');
   splashFinished = true;
   maybeShowMobileGuide();
 }
