@@ -87,7 +87,8 @@ const soundButton = document.getElementById('soundButton');
 const bgmVolumeSlider = document.getElementById('bgmVolumeSlider');
 const bgmVolumeValue = document.getElementById('bgmVolumeValue');
 const mobileJumpButton = document.getElementById('mobileJumpButton');
-const touchAppMediaQuery = window.matchMedia('(hover: none) and (pointer: coarse)');
+const touchAppMediaQuery = window.matchMedia('(pointer: coarse)');
+const compactViewportMediaQuery = window.matchMedia('(max-width: 1024px), (max-height: 600px)');
 const appSplash = document.getElementById('appSplash');
 const mobileHudHp = document.getElementById('mobileHudHp');
 const mobileHudTime = document.getElementById('mobileHudTime');
@@ -123,11 +124,17 @@ let mobileGuidePausedRun = false;
 let splashFinished = false;
 
 function isMobileAppInputMode() {
-  return touchAppMediaQuery.matches;
+  const hasTouch = navigator.maxTouchPoints > 0 || 'ontouchstart' in window;
+  const compactViewport = compactViewportMediaQuery.matches || Math.min(window.innerWidth, window.innerHeight) <= 600 || Math.max(window.innerWidth, window.innerHeight) <= 1024;
+  return hasTouch && (touchAppMediaQuery.matches || compactViewport);
 }
 
 function isMobileLandscapeMode() {
   return isMobileAppInputMode() && landscapeMediaQuery.matches;
+}
+
+function syncMobileUiMode() {
+  document.body.classList.toggle('mobile-ui-mode', isMobileAppInputMode());
 }
 
 function getAudioContext() {
@@ -1124,6 +1131,7 @@ updateSoundButton();
 updateBgmVolumeUI();
 resetGame();
 syncMobileSettingsLists();
+syncMobileUiMode();
 if (appSplash) {
   window.setTimeout(() => {
     appSplash.classList.add('hidden');
@@ -1137,11 +1145,28 @@ if (appSplash) {
   maybeShowMobileGuide();
 }
 window.addEventListener('orientationchange', () => {
+  syncMobileUiMode();
   window.setTimeout(maybeShowMobileGuide, 250);
 });
+window.addEventListener('resize', () => {
+  syncMobileUiMode();
+  maybeShowMobileGuide();
+});
 if (touchAppMediaQuery.addEventListener) {
-  touchAppMediaQuery.addEventListener('change', maybeShowMobileGuide);
+  touchAppMediaQuery.addEventListener('change', () => {
+    syncMobileUiMode();
+    maybeShowMobileGuide();
+  });
+}
+if (compactViewportMediaQuery.addEventListener) {
+  compactViewportMediaQuery.addEventListener('change', () => {
+    syncMobileUiMode();
+    maybeShowMobileGuide();
+  });
 }
 if (landscapeMediaQuery.addEventListener) {
-  landscapeMediaQuery.addEventListener('change', maybeShowMobileGuide);
+  landscapeMediaQuery.addEventListener('change', () => {
+    syncMobileUiMode();
+    maybeShowMobileGuide();
+  });
 }
